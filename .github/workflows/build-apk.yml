@@ -580,6 +580,13 @@ jobs:
           print("v0.6.0 root probe and read-only backup assessment applied")
           PY
 
+      - name: Apply TV Diagnostic v0.7.0 root and firmware safety assessment
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+          export SRC GRADLE
+          python3 patches/v070.py
+
       - name: Upload source snapshot for review
         uses: actions/upload-artifact@v4
         with:
