@@ -186,6 +186,18 @@ jobs:
           print("Verified: share action creates a JSON file and sends its content URI")
           PY
 
+      - name: Upload source snapshot for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: TV-Diagnostic-source-snapshot
+          path: |
+            ${{ env.PROJECT_DIR }}/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
+            ${{ env.PROJECT_DIR }}/app/build.gradle.kts
+            ${{ env.PROJECT_DIR }}/app/src/main/AndroidManifest.xml
+            ${{ env.PROJECT_DIR }}/build.gradle.kts
+            ${{ env.PROJECT_DIR }}/settings.gradle.kts
+          if-no-files-found: error
+
       - name: Build debug APK
         run: gradle --no-daemon -p "$PROJECT_DIR" assembleDebug
 
