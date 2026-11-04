@@ -30,9 +30,18 @@ jobs:
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
       - name: Align JVM targets
-        run: find "$PROJECT_DIR" -type f -name '*.gradle*' -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g;s/JvmTarget.JVM_1_8/JvmTarget.JVM_17/g;s/jvmTarget = "1.8"/jvmTarget = "17"/g;s/sourceCompatibility = "1.8"/sourceCompatibility = "17"/g;s/targetCompatibility = "1.8"/targetCompatibility = "17"/g' {} +
+        run: |
+          find "$PROJECT_DIR" -type f -name '*.gradle*' -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g;s/JvmTarget.JVM_1_8/JvmTarget.JVM_17/g;s/jvmTarget = "1.8"/jvmTarget = "17"/g;s/sourceCompatibility = "1.8"/sourceCompatibility = "17"/g;s/targetCompatibility = "1.8"/targetCompatibility = "17"/g' {} +
+          cat > "$RUNNER_TEMP/force-jvm17.gradle" <<'EOF'
+          allprojects {
+              tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach {
+                  sourceCompatibility = '17'
+                  targetCompatibility = '17'
+              }
+          }
+          EOF
       - name: Build debug APK
-        run: gradle --no-daemon -p "$PROJECT_DIR" assembleDebug
+        run: gradle --no-daemon --init-script "$RUNNER_TEMP/force-jvm17.gradle" -p "$PROJECT_DIR" assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: TV-Diagnostic-debug-apk
