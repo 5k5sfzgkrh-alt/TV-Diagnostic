@@ -42,6 +42,13 @@ jobs:
                   targetCompatibility = '17'
               }
           }
+          gradle.projectsEvaluated {
+              allprojects {
+                  tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                      kotlinOptions.jvmTarget = '1.8'
+                  }
+              }
+          }
           EOF
       - name: Build debug APK
         run: gradle --no-daemon --init-script "$RUNNER_TEMP/force-jvm17.gradle" -p "$PROJECT_DIR" assembleDebug
