@@ -295,3 +295,167 @@ jobs:
           name: TV-Diagnostic-debug-apk
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Apply TV Diagnostic v0.5.0 firmware inventory
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+          export SRC GRADLE
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          gradle = Path(os.environ["GRADLE"])
+          gs = gradle.read_text().replace("versionCode = 4", "versionCode = 5", 1)
+          gs = gs.replace('versionName = "0.4.0"', 'versionName = "0.5.0"', 1)
+          if 'versionName = "0.5.0"' not in gs:
+              raise SystemExit("Could not set app version 0.5.0")
+          gradle.write_text(gs)
+
+          path = Path(os.environ["SRC"])
+          s = path.read_text()
+          s = s.replace("Hi3751V553  •  0.4.0", "Hi3751V553  •  0.5.0", 1)
+          s = s.replace('j.put("appVersion", "0.4.0")', 'j.put("appVersion", "0.5.0")', 1)
+          s = s.replace("tv-diagnostic-report-v040.json", "tv-diagnostic-report-v050.json")
+          old = 'j.put("partitionInfo", collectPartitionInfo())'
+          new = old + '''
+                  j.put("bootInfo", collectBootInfo())
+                  j.put("securityInfo", collectSecurityInfo())
+                  j.put("recoveryInfo", collectRecoveryInfo())'''
+          if 'j.put("bootInfo", collectBootInfo())' not in s:
+              if old not in s: raise SystemExit("Partition report anchor missing")
+              s = s.replace(old, new, 1)
+
+          methods = r"""
+              // Read-only inventory. No block device contents are opened or modified.
+              private fun collectPartitionInfo(): JSONObject = JSONObject().apply {
+                  put("procPartitions", readText("/proc/partitions", 16000))
+                  put("mounts", readText("/proc/mounts", 16000))
+                  put("fstab", readText("/vendor/etc/fstab", 12000))
+                  put("fstabDevice", readText("/odm/etc/fstab", 8000))
+                  val devices = JSONArray()
+                  File("/sys/block").listFiles()?.sortedBy { it.name }?.forEach { device ->
+                      devices.put(JSONObject().apply {
+                          put("name", device.name)
+                          put("sectors512", readNumber("${device.absolutePath}/size") ?: JSONObject.NULL)
+                          put("readOnly", readNumber("${device.absolutePath}/ro") ?: JSONObject.NULL)
+                          put("removable", readNumber("${device.absolutePath}/removable") ?: JSONObject.NULL)
+                          put("logicalBlockSize", readNumber("${device.absolutePath}/queue/logical_block_size") ?: JSONObject.NULL)
+                          put("physicalBlockSize", readNumber("${device.absolutePath}/queue/physical_block_size") ?: JSONObject.NULL)
+                      })
+                  }
+                  put("blockDevices", devices)
+                  val byName = JSONArray()
+                  val candidates = mutableListOf(File("/dev/block/by-name"), File("/dev/block/bootdevice/by-name"))
+                  File("/dev/block/platform").listFiles()?.forEach { platform ->
+                      candidates.add(File(platform, "by-name"))
+                      platform.listFiles()?.forEach { child -> candidates.add(File(child, "by-name")) }
+                  }
+                  candidates.distinctBy { it.absolutePath }.filter { it.isDirectory }.forEach { dir ->
+                      dir.listFiles()?.sortedBy { it.name }?.forEach { node ->
+                          byName.put(JSONObject().apply {
+                              put("name", node.name)
+                              put("path", node.absolutePath)
+                              put("target", try { node.canonicalPath } catch (_: Exception) { "unavailable" })
+                              put("readableMetadata", node.canRead())
+                          })
+                      }
+                  }
+                  put("byNameEntries", byName)
+                  put("rawPartitionDataRead", false)
+                  put("note", "Метаданные разделов; содержимое блочных устройств не читалось и не изменялось.")
+              }
+
+              private fun collectBootInfo(): JSONObject = JSONObject().apply {
+                  put("bootProperties", collectProperties(listOf(
+                      "ro.boot.bootloader", "ro.boot.hardware", "ro.bootmode", "ro.boot.mode",
+                      "ro.boot.slot_suffix", "ro.boot.slot", "ro.boot.bootdevice", "ro.boot.boot_devices",
+                      "ro.bootloader", "ro.hardware", "ro.product.board"
+                  )))
+                  put("kernelCmdline", readText("/proc/cmdline", 16000))
+                  put("kernelBootconfig", readText("/proc/bootconfig", 12000))
+                  put("deviceTreeModel", readText("/proc/device-tree/model", 2000))
+                  put("deviceTreeCompatible", readText("/proc/device-tree/compatible", 4000))
+                  put("kernelModules", readText("/proc/modules", 12000))
+                  put("bootCompleted", getSystemProperty("sys.boot_completed"))
+              }
+
+              private fun collectSecurityInfo(): JSONObject = JSONObject().apply {
+                  put("properties", collectProperties(listOf(
+                      "ro.boot.verifiedbootstate", "ro.boot.flash.locked", "ro.boot.vbmeta.device_state",
+                      "ro.boot.avb_version", "ro.boot.veritymode", "ro.boot.dm_verity",
+                      "ro.crypto.state", "ro.crypto.type", "vold.decrypt", "ro.secure", "ro.debuggable",
+                      "ro.build.type", "ro.build.tags", "ro.build.version.security_patch"
+                  )))
+                  put("selinuxEnforce", readText("/sys/fs/selinux/enforce", 100).trim())
+                  put("selinuxContext", readText("/proc/self/attr/current", 500).trim())
+                  put("dataMount", readText("/proc/mounts", 16000).lineSequence()
+                      .filter { it.contains(" /data ") }.joinToString("\\n"))
+                  put("note", "Значения отражают только доступные свойства; недоступность не означает отключение защиты.")
+              }
+
+              private fun collectRecoveryInfo(): JSONObject = JSONObject().apply {
+                  val paths = listOf(
+                      "/system/bin/recovery", "/system/bin/update_engine", "/system/bin/bootctl",
+                      "/vendor/bin/bootctl", "/sbin/recovery", "/dev/block/by-name/recovery",
+                      "/dev/block/by-name/boot", "/dev/block/by-name/vendor_boot", "/dev/block/by-name/vbmeta"
+                  )
+                  val found = JSONArray()
+                  paths.forEach { path ->
+                      val f = File(path)
+                      if (f.exists()) found.put(JSONObject().apply {
+                          put("path", path); put("directory", f.isDirectory); put("readableMetadata", f.canRead())
+                      })
+                  }
+                  put("knownPaths", found)
+                  put("slotAndBootProperties", collectProperties(listOf(
+                      "ro.boot.slot_suffix", "ro.boot.slot", "ro.boot.dynamic_partitions",
+                      "ro.virtual_ab.enabled", "ro.boot.fastboot", "ro.bootmode", "sys.boot_completed"
+                  )))
+                  put("backupMethod", "not_determined")
+                  put("rawBackupAttempted", false)
+                  put("note", "Recovery/fastboot не запускаются; резервные копии разделов не создаются.")
+              }
+
+              private fun collectProperties(names: List<String>): JSONObject = JSONObject().apply {
+                  names.forEach { name -> put(name, getSystemProperty(name)) }
+              }
+
+              private fun getSystemProperty(name: String): String = try {
+                  val process = ProcessBuilder("getprop", name).redirectErrorStream(true).start()
+                  if (!process.waitForWithTimeout(1200)) {
+                      process.destroyForcibly()
+                      "timeout"
+                  } else if (process.exitValue() == 0) {
+                      process.inputStream.bufferedReader().use { it.readText().trim().take(1000) }
+                          .ifBlank { "empty" }
+                  } else "unavailable"
+              } catch (_: Exception) { "unavailable" }
+
+          """
+          anchor = "    private fun collectMediaCodecs(): JSONArray {"
+          if "private fun collectBootInfo()" not in s:
+              if anchor not in s: raise SystemExit("v0.5 method insertion anchor missing")
+              s = s.replace(anchor, methods + anchor, 1)
+
+          old_report = '''            appendLine("Сведения о /proc/partitions и /proc/mounts включены в JSON")'''
+          new_report = '''            appendLine("Записей by-name: ${(part.optJSONArray("byNameEntries") ?: JSONArray()).length()}")
+                      appendLine("Содержимое разделов не читалось и не изменялось")
+                      val boot = j.optJSONObject("bootInfo") ?: JSONObject()
+                      val bootProps = boot.optJSONObject("bootProperties") ?: JSONObject()
+                      appendLine("Bootloader: ${bootProps.optString("ro.boot.bootloader", "нет данных")}")
+                      val security = j.optJSONObject("securityInfo") ?: JSONObject()
+                      val sec = security.optJSONObject("properties") ?: JSONObject()
+                      appendLine("Verified Boot: ${sec.optString("ro.boot.verifiedbootstate", "нет данных")}")
+                      appendLine("Шифрование: ${sec.optString("ro.crypto.state", "нет данных")} / ${sec.optString("ro.crypto.type", "нет данных")}")
+                      appendLine("SELinux enforce: ${security.optString("selinuxEnforce", "нет данных")}")'''
+          if old_report in s:
+              s = s.replace(old_report, new_report, 1)
+
+          required = ["collectBootInfo()", "collectSecurityInfo()", "collectRecoveryInfo()",
+                      "rawPartitionDataRead", "tv-diagnostic-report-v050.json"]
+          if not all(token in s for token in required):
+              raise SystemExit("v0.5.0 source verification failed: " + ", ".join(x for x in required if x not in s))
+          path.write_text(s)
+          print("v0.5.0 firmware inventory changes applied and verified")
+          PY
