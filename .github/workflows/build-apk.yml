@@ -440,6 +440,146 @@ jobs:
           print("v0.5.0 firmware inventory changes applied and verified")
           PY
 
+      - name: Apply TV Diagnostic v0.6.0 access and backup checks
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+          export SRC GRADLE
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          gradle = Path(os.environ["GRADLE"])
+          gs = gradle.read_text()
+          if 'versionName = "0.5.0"' not in gs:
+              raise SystemExit("Expected v0.5.0 Gradle source")
+          if "versionCode = 5" not in gs:
+              raise SystemExit("Expected versionCode 5")
+          gs = gs.replace("versionCode = 5", "versionCode = 6", 1)
+          gs = gs.replace('versionName = "0.5.0"', 'versionName = "0.6.0"', 1)
+          gradle.write_text(gs)
+
+          path = Path(os.environ["SRC"])
+          s = path.read_text()
+          s = s.replace("Hi3751V553  •  0.5.0", "Hi3751V553  •  0.6.0", 1)
+          s = s.replace('j.put("appVersion", "0.5.0")', 'j.put("appVersion", "0.6.0")', 1)
+          s = s.replace("tv-diagnostic-report-v050.json", "tv-diagnostic-report-v060.json")
+
+          anchor_call = 'j.put("recoveryInfo", collectRecoveryInfo())'
+          if 'j.put("accessInfo", collectAccessInfo())' not in s:
+              if anchor_call not in s:
+                  raise SystemExit("v0.5 recovery report anchor missing")
+              s = s.replace(anchor_call, anchor_call + '\n        j.put("accessInfo", collectAccessInfo())', 1)
+
+          methods = r"""
+              // v0.6.0: bounded, read-only privilege and backup-capability checks.
+              // Does not read raw partition contents, write blocks, or invoke recovery/fastboot.
+              private fun collectAccessInfo(): JSONObject = JSONObject().apply {
+                  val suPaths = listOf("/system/bin/su", "/system/xbin/su", "/vendor/bin/su", "/sbin/su")
+                  val presentSu = JSONArray()
+                  suPaths.forEach { path ->
+                      val f = File(path)
+                      if (f.exists()) presentSu.put(JSONObject().apply {
+                          put("path", path)
+                          put("readable", f.canRead())
+                          put("executable", f.canExecute())
+                      })
+                  }
+                  put("suBinaries", presentSu)
+
+                  var probeOutput = ""
+                  var probeExit = -1
+                  var probeTimedOut = false
+                  var probeError = ""
+                  try {
+                      val process = ProcessBuilder("su", "-c", "id")
+                          .redirectErrorStream(true).start()
+                      if (!process.waitForWithTimeout(2500)) {
+                          probeTimedOut = true
+                          process.destroyForcibly()
+                      } else {
+                          probeExit = process.exitValue()
+                          probeOutput = process.inputStream.bufferedReader().use { it.readText().trim().take(2000) }
+                      }
+                  } catch (e: Exception) {
+                      probeError = e.message ?: e.javaClass.simpleName
+                  }
+                  val rootConfirmed = probeExit == 0 &&
+                      Regex("""uid=0(?:\(|\s|$)""").containsMatchIn(probeOutput)
+                  put("rootProbe", JSONObject().apply {
+                      put("command", "su -c id")
+                      put("output", probeOutput)
+                      put("exitCode", probeExit)
+                      put("timedOut", probeTimedOut)
+                      put("error", probeError)
+                      put("rootConfirmed", rootConfirmed)
+                      put("note", "Root подтверждается только при успешном выводе uid=0; наличие файла su само по себе root не доказывает.")
+                  })
+
+                  val tools = listOf(
+                      "/system/bin/dd", "/system/bin/toybox", "/system/bin/busybox",
+                      "/system/bin/fastboot", "/system/bin/adb", "/system/bin/recovery",
+                      "/vendor/bin/update_engine", "/system/bin/update_engine"
+                  )
+                  val toolList = JSONArray()
+                  tools.forEach { path ->
+                      val f = File(path)
+                      if (f.exists()) toolList.put(JSONObject().apply {
+                          put("path", path)
+                          put("executable", f.canExecute())
+                      })
+                  }
+                  put("backupTools", toolList)
+
+                  val partitionNodes = JSONArray()
+                  val partitionInfo = collectPartitionInfo()
+                  val entries = partitionInfo.optJSONArray("byNameEntries") ?: JSONArray()
+                  for (i in 0 until entries.length()) {
+                      val entry = entries.optJSONObject(i) ?: continue
+                      val path = entry.optString("path")
+                      if (path.isBlank()) continue
+                      val node = File(path)
+                      partitionNodes.put(JSONObject().apply {
+                          put("name", entry.optString("name"))
+                          put("path", path)
+                          put("target", entry.optString("target"))
+                          put("metadataReadable", node.canRead())
+                          put("exists", node.exists())
+                      })
+                  }
+                  put("partitionNodeChecks", partitionNodes)
+                  put("rawPartitionReadAttempted", false)
+                  put("partitionWriteAttempted", false)
+                  put("recoveryOrFastbootStarted", false)
+                  put("rootConfirmed", rootConfirmed)
+                  put("backupAssessment", if (rootConfirmed) {
+                      "root_command_confirmed_raw_partition_read_not_tested"
+                  } else {
+                      "root_not_confirmed_raw_partition_read_not_tested"
+                  })
+                  put("safetyNote", "Проверялись только команды, наличие файлов и метаданные узлов. Содержимое разделов не читалось и не изменялось. Доступность файла не доказывает возможность полного дампа.")
+              }
+
+          """
+          anchor_method = "    private fun collectMediaCodecs(): JSONArray {"
+          if "private fun collectAccessInfo()" not in s:
+              if anchor_method not in s:
+                  raise SystemExit("v0.6 method insertion anchor missing")
+              s = s.replace(anchor_method, methods + anchor_method, 1)
+
+          required = [
+              'versionName = "0.6.0"', 'j.put("appVersion", "0.6.0")',
+              'j.put("accessInfo", collectAccessInfo())',
+              'private fun collectAccessInfo()', 'rawPartitionReadAttempted',
+              'partitionWriteAttempted', 'tv-diagnostic-report-v060.json'
+          ]
+          missing = [token for token in required if token not in gs + s]
+          if missing:
+              raise SystemExit("v0.6.0 verification failed: " + ", ".join(missing))
+          path.write_text(s)
+          print("v0.6.0 root probe and read-only backup assessment applied")
+          PY
+
       - name: Upload source snapshot for review
         uses: actions/upload-artifact@v4
         with:
