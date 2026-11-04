@@ -14,44 +14,55 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Unpack source archive if present
         run: |
           if [ -f source-v0.3.0.zip ]; then unzip -q source-v0.3.0.zip -d extracted; fi
+
       - name: Locate project
         run: |
-          if [ -f settings.gradle.kts ]; then echo "PROJECT_DIR=." >> "$GITHUB_ENV"; elif [ -f TV_Diagnostic_Hi3751V553_build_kit_v0.3.0/settings.gradle.kts ]; then echo "PROJECT_DIR=TV_Diagnostic_Hi3751V553_build_kit_v0.3.0" >> "$GITHUB_ENV"; elif [ -f extracted/TV_Diagnostic_Hi3751V553_build_kit_v0.3.0/settings.gradle.kts ]; then echo "PROJECT_DIR=extracted/TV_Diagnostic_Hi3751V553_build_kit_v0.3.0" >> "$GITHUB_ENV"; else exit 1; fi
+          if [ -f settings.gradle.kts ]; then
+            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+          elif [ -f TV_Diagnostic_Hi3751V553_build_kit_v0.3.0/settings.gradle.kts ]; then
+            echo "PROJECT_DIR=TV_Diagnostic_Hi3751V553_build_kit_v0.3.0" >> "$GITHUB_ENV"
+          elif [ -f extracted/TV_Diagnostic_Hi3751V553_build_kit_v0.3.0/settings.gradle.kts ]; then
+            echo "PROJECT_DIR=extracted/TV_Diagnostic_Hi3751V553_build_kit_v0.3.0" >> "$GITHUB_ENV"
+          else
+            echo "Gradle project not found. Archive contents:"
+            find . -maxdepth 4 -type f | sort
+            exit 1
+          fi
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+
       - uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools'
+
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-      - name: Align JVM targets
+
+      - name: Align Kotlin target with Android Java 8
         run: |
-          find "$PROJECT_DIR" -type f -name '*.gradle*' -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g;s/JvmTarget.JVM_1_8/JvmTarget.JVM_17/g;s/jvmTarget = "1.8"/jvmTarget = "17"/g;s/sourceCompatibility = "1.8"/sourceCompatibility = "17"/g;s/targetCompatibility = "1.8"/targetCompatibility = "17"/g' {} +
-          cat > "$RUNNER_TEMP/force-jvm17.gradle" <<'EOF'
-          allprojects {
-              tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach {
-                  sourceCompatibility = '17'
-                  targetCompatibility = '17'
-              }
-          }
-          gradle.projectsEvaluated {
-              allprojects {
-                  tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-                      kotlinOptions.jvmTarget = '1.8'
-                  }
-              }
-          }
-          EOF
+          find "$PROJECT_DIR" -type f \( -name '*.gradle' -o -name '*.gradle.kts' \) -print0 | while IFS= read -r -d '' file; do
+            sed -i \
+              -e 's/JvmTarget.JVM_17/JvmTarget.JVM_1_8/g' \
+              -e 's/jvmTarget = "17"/jvmTarget = "1.8"/g' \
+              -e "s/jvmTarget = '17'/jvmTarget = '1.8'/g" \
+              "$file"
+          done
+          echo "Java target is left at the Android Gradle Plugin default (1.8); Kotlin target is aligned to 1.8."
+
       - name: Build debug APK
-        run: gradle --no-daemon --init-script "$RUNNER_TEMP/force-jvm17.gradle" -p "$PROJECT_DIR" assembleDebug
+        run: gradle --no-daemon -p "$PROJECT_DIR" assembleDebug
+
       - uses: actions/upload-artifact@v4
         with:
           name: TV-Diagnostic-debug-apk
