@@ -505,7 +505,7 @@ jobs:
                       probeError = e.message ?: e.javaClass.simpleName
                   }
                   val rootConfirmed = probeExit == 0 &&
-                      Regex("""uid=0(?:\(|\s|$)""").containsMatchIn(probeOutput)
+                      Regex("uid=0(?:\\\\(|\\\\s|$)").containsMatchIn(probeOutput)
                   put("rootProbe", JSONObject().apply {
                       put("command", "su -c id")
                       put("output", probeOutput)
