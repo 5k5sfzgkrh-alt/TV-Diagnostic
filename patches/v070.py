@@ -171,7 +171,9 @@ new_probe = r"""    private fun runRootProbe(): Pair<String, String> {
             val output = result.optString("output")
             details.add(command.joinToString(" ") + " -> " +
                 output.ifBlank { result.optString("error", "нет вывода") })
-            if (result.optBoolean("rootConfirmed")) return "root_confirmed" to details.joinToString("\n")
+            val isRoot = result.optInt("exitCode", -1) == 0 &&
+                Regex("uid=0(?:\\\\(|\\\\s|$)").containsMatchIn(output)
+            if (isRoot) return "root_confirmed" to details.joinToString("\n")
         }
         return "not_confirmed" to details.joinToString("\n")
     }
