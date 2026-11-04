@@ -11,12 +11,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Unpack source archive if present
+        run: |
+          if [ -f source-v0.3.0.zip ]; then
+            unzip -q source-v0.3.0.zip -d extracted
+          fi
       - name: Locate project
         run: |
           if [ -f settings.gradle.kts ]; then
             echo "PROJECT_DIR=." >> "$GITHUB_ENV"
           elif [ -f TV_Diagnostic_Hi3751V553_build_kit_v0.3.0/settings.gradle.kts ]; then
             echo "PROJECT_DIR=TV_Diagnostic_Hi3751V553_build_kit_v0.3.0" >> "$GITHUB_ENV"
+          elif [ -f extracted/TV_Diagnostic_Hi3751V553_build_kit_v0.3.0/settings.gradle.kts ]; then
+            echo "PROJECT_DIR=extracted/TV_Diagnostic_Hi3751V553_build_kit_v0.3.0" >> "$GITHUB_ENV"
           else
             echo "Android project files are missing from repository root and expected subfolder."
             exit 1
