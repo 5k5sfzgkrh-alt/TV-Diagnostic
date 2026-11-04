@@ -60,6 +60,12 @@ jobs:
           done
           echo "Java target is left at the Android Gradle Plugin default (1.8); Kotlin target is aligned to 1.8."
 
+      - name: Patch Process type ambiguity
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          sed -i 's/private fun Process\\.waitForWithTimeout/private fun java.lang.Process.waitForWithTimeout/' "$SRC"
+          grep -n 'waitForWithTimeout' "$SRC"
+
       - name: Print Kotlin error context for audit
         run: |
           SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
