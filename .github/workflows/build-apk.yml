@@ -62,19 +62,20 @@ jobs:
 
       - name: Patch Process type ambiguity
         run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          export SRC
           python3 - <<'PY'
+          import os
           from pathlib import Path
-          p = Path(\"$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt\")
+          p = Path(os.environ["SRC"])
           s = p.read_text()
-          old = \"private fun Process.waitForWithTimeout(\"
-          new = \"private fun java.lang.Process.waitForWithTimeout(\"
+          old = "private fun Process.waitForWithTimeout("
+          new = "private fun java.lang.Process.waitForWithTimeout("
           if old not in s:
-              raise SystemExit(\"Expected Process extension signature not found\")
-          s = s.replace(old, new, 1)
-          p.write_text(s)
-          if new not in p.read_text():
-              raise SystemExit(\"Process type patch verification failed\")
-          print(\"Patched and verified java.lang.Process extension\")
+              raise SystemExit("Expected Process extension signature not found")
+          p.write_text(s.replace(old, new, 1))
+          assert new in p.read_text(), "Process type patch verification failed"
+          print("Patched and verified java.lang.Process extension")
           PY
 
       - name: Print Kotlin error context for audit
