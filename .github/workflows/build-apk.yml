@@ -13,21 +13,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Unpack source archive if present
         run: |
-          if [ -f source-v0.3.0.zip ]; then
-            unzip -q source-v0.3.0.zip -d extracted
-          fi
+          if [ -f source-v0.3.0.zip ]; then unzip -q source-v0.3.0.zip -d extracted; fi
       - name: Locate project
         run: |
-          if [ -f settings.gradle.kts ]; then
-            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
-          elif [ -f TV_Diagnostic_Hi3751V553_build_kit_v0.3.0/settings.gradle.kts ]; then
-            echo "PROJECT_DIR=TV_Diagnostic_Hi3751V553_build_kit_v0.3.0" >> "$GITHUB_ENV"
-          elif [ -f extracted/TV_Diagnostic_Hi3751V553_build_kit_v0.3.0/settings.gradle.kts ]; then
-            echo "PROJECT_DIR=extracted/TV_Diagnostic_Hi3751V553_build_kit_v0.3.0" >> "$GITHUB_ENV"
-          else
-            echo "Android project files are missing from repository root and expected subfolder."
-            exit 1
-          fi
+          if [ -f settings.gradle.kts ]; then echo "PROJECT_DIR=." >> "$GITHUB_ENV"; elif [ -f TV_Diagnostic_Hi3751V553_build_kit_v0.3.0/settings.gradle.kts ]; then echo "PROJECT_DIR=TV_Diagnostic_Hi3751V553_build_kit_v0.3.0" >> "$GITHUB_ENV"; elif [ -f extracted/TV_Diagnostic_Hi3751V553_build_kit_v0.3.0/settings.gradle.kts ]; then echo "PROJECT_DIR=extracted/TV_Diagnostic_Hi3751V553_build_kit_v0.3.0" >> "$GITHUB_ENV"; else exit 1; fi
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -40,6 +29,8 @@ jobs:
           packages: 'platform-tools'
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Align JVM targets
+        run: find "$PROJECT_DIR" -type f -name '*.gradle*' -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g;s/JvmTarget.JVM_1_8/JvmTarget.JVM_17/g;s/jvmTarget = "1.8"/jvmTarget = "17"/g;s/sourceCompatibility = "1.8"/sourceCompatibility = "17"/g;s/targetCompatibility = "1.8"/targetCompatibility = "17"/g' {} +
       - name: Build debug APK
         run: gradle --no-daemon -p "$PROJECT_DIR" assembleDebug
       - uses: actions/upload-artifact@v4
