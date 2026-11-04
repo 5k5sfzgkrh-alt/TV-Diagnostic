@@ -88,26 +88,20 @@ replacement = r"""
             put("command", command.joinToString(" "))
             var process: java.lang.Process? = null
             try {
-                process = ProcessBuilder(command).redirectErrorStream(true).start()
-                val output = process.inputStream.bufferedReader().use { reader ->
-                    val builder = StringBuilder()
-                    val buffer = CharArray(512)
-                    while (builder.length < 2000) {
-                        val count = reader.read(buffer, 0, minOf(buffer.size, 2000 - builder.length))
-                        if (count < 0) break
-                        builder.append(buffer, 0, count)
-                        if (!process.isAlive) break
-                    }
-                    builder.toString().trim()
-                }
-                val finished = process.waitForWithTimeout(timeoutMs)
-                if (!finished) process.destroyForcibly()
+                val proc = ProcessBuilder(command).redirectErrorStream(true).start()
+                val finished = proc.waitForWithTimeout(timeoutMs)
+                if (!finished) proc.destroyForcibly()
+                val output = try {
+                    proc.inputStream.bufferedReader().use { it.readText().take(2000).trim() }
+                } catch (_: Exception) { "" }
                 put("output", output)
-                put("exitCode", if (finished) process.exitValue() else -1)
+                put("exitCode", if (finished) proc.exitValue() else -1)
                 put("timedOut", !finished)
                 put("error", "")
             } catch (e: Exception) {
-                try { process?.destroyForcibly() } catch (_: Exception) {}
+                put("output", "")
+                put("exitCode", -1)
+                put("timedOut", false)
                 put("output", "")
                 put("exitCode", -1)
                 put("timedOut", false)
