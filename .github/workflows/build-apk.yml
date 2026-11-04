@@ -186,6 +186,95 @@ jobs:
           print("Verified: share action creates a JSON file and sends its content URI")
           PY
 
+
+      - name: Apply TV Diagnostic v0.4.0 source changes
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+          export SRC GRADLE
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          gradle = Path(os.environ["GRADLE"])
+          gs = gradle.read_text()
+          if "versionName = \"0.3.0\"" in gs:
+              gs = gs.replace("versionCode = 3", "versionCode = 4", 1)
+              gs = gs.replace('versionName = "0.3.0"', 'versionName = "0.4.0"', 1)
+          if 'versionName = "0.4.0"' not in gs:
+              raise SystemExit("Version update failed")
+          gradle.write_text(gs)
+
+          path = Path(os.environ["SRC"])
+          s = path.read_text()
+          s = s.replace("Hi3751V553  •  0.2.0", "Hi3751V553  •  0.4.0", 1)
+          s = s.replace("import android.opengl.GLSurfaceView",
+                        "import android.opengl.GLSurfaceView\nimport android.media.MediaCodecList", 1)
+          s = s.replace('j.put("timestamp", System.currentTimeMillis())',
+                        'j.put("timestamp", System.currentTimeMillis())\n        j.put("appVersion", BuildConfig.VERSION_NAME)', 1)
+          s = s.replace('j.put("uptime", readText("/proc/uptime", 1000))',
+                        'j.put("uptime", readText("/proc/uptime", 1000))\n        j.put("partitionInfo", collectPartitionInfo())', 1)
+          s = s.replace('j.put("gpu", gpuInfo)',
+                        'j.put("gpu", gpuInfo)\n        j.put("mediaCodecs", collectMediaCodecs())', 1)
+
+          methods = r"""
+              private fun collectPartitionInfo(): JSONObject = JSONObject().apply {
+                  put("procPartitions", readText("/proc/partitions", 12000))
+                  put("mounts", readText("/proc/mounts", 12000))
+                  val devices = JSONArray()
+                  File("/sys/block").listFiles()?.sortedBy { it.name }?.forEach { devices.put(it.name) }
+                  put("blockDevices", devices)
+                  put("note", "Доступные блочные устройства и точки монтирования; не полный дамп таблицы разделов")
+              }
+
+              private fun collectMediaCodecs(): JSONArray {
+                  val result = JSONArray()
+                  return try {
+                      MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos.forEach { info ->
+                          val types = info.supportedTypes.filter { it.startsWith("video/", ignoreCase = true) }
+                          if (types.isNotEmpty()) result.put(JSONObject().apply {
+                              put("name", info.name)
+                              put("encoder", info.isEncoder)
+                              put("videoTypes", JSONArray(types))
+                              if (Build.VERSION.SDK_INT >= 29) put("hardwareAccelerated", info.isHardwareAccelerated)
+                          })
+                      }
+                      result
+                  } catch (e: Exception) {
+                      result.put(JSONObject().put("error", e.message ?: "codec list unavailable"))
+                      result
+                  }
+              }
+
+          """
+          anchor = "    private fun collectCpuFrequencies(): JSONArray {"
+          if "private fun collectMediaCodecs()" not in s:
+              if anchor not in s: raise SystemExit("Method insertion anchor missing")
+              s = s.replace(anchor, methods + anchor, 1)
+
+          s = s.replace("tv-diagnostic-report-v030.json", "tv-diagnostic-report-v040.json")
+          s = s.replace('''            appendLine(j.optString("gpu"))
+            appendLine()''',
+                        '''            appendLine(j.optString("gpu"))
+            val codecs = j.optJSONArray("mediaCodecs") ?: JSONArray()
+            appendLine("Видеокодеки: ${codecs.length()} записей")
+            appendLine()''', 1)
+          s = s.replace('''            appendLine("ЭКРАН")''',
+                        '''            appendLine("НАКОПИТЕЛЬ И РАЗДЕЛЫ")
+            val part = j.optJSONObject("partitionInfo") ?: JSONObject()
+            val devices = part.optJSONArray("blockDevices") ?: JSONArray()
+            appendLine("Блочных устройств: ${devices.length()}")
+            appendLine("Сведения о /proc/partitions и /proc/mounts включены в JSON")
+            appendLine()
+            appendLine("ЭКРАН")''', 1)
+
+          required = ["collectMediaCodecs()", "collectPartitionInfo()", "BuildConfig.VERSION_NAME"]
+          if not all(x in s for x in required):
+              raise SystemExit("v0.4.0 source verification failed")
+          path.write_text(s)
+          print("v0.4.0 source changes applied and verified")
+          PY
+
       - name: Upload source snapshot for review
         uses: actions/upload-artifact@v4
         with:
