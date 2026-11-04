@@ -86,6 +86,14 @@ jobs:
           echo "===== MainActivity.kt lines 450-480 ====="
           sed -n '450,480p' "$SRC"
 
+      - name: Audit report generation code
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          echo "===== REPORT/EXPORT REFERENCES ====="
+          grep -n -i -E 'report|export|json|create.*file|FileProvider|ACTION_CREATE_DOCUMENT|writeText|OutputStream|Uri' "$SRC" || true
+          echo "===== MAINACTIVITY SOURCE ====="
+          cat "$SRC"
+
       - name: Build debug APK
         run: gradle --no-daemon -p "$PROJECT_DIR" assembleDebug
 
