@@ -186,6 +186,115 @@ jobs:
           print("Verified: share action creates a JSON file and sends its content URI")
           PY
 
+      - name: Apply TV Diagnostic v0.4.0 improvements
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+          export SRC GRADLE
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          g = Path(os.environ["GRADLE"])
+          gs = g.read_text()
+          gs = gs.replace('versionCode = 3', 'versionCode = 4').replace('versionName = "0.3.0"', 'versionName = "0.4.0"')
+          if 'versionName = "0.4.0"' not in gs:
+              raise SystemExit("Could not update app version")
+          g.write_text(gs)
+          p = Path(os.environ["SRC"])
+          s = p.read_text()
+          s = s.replace('TV DIAGNOSTIC  •  Hi3751V553  •  0.2.0', 'TV DIAGNOSTIC  •  Hi3751V553  •  0.4.0')
+          s = s.replace('import android.opengl.GLSurfaceView', 'import android.opengl.GLSurfaceView\nimport android.media.MediaCodecList')
+          s = s.replace('j.put("timestamp", System.currentTimeMillis())', 'j.put("timestamp", System.currentTimeMillis())\n        j.put("appVersion", BuildConfig.VERSION_NAME)')
+          s = s.replace('j.put("uptime", readText("/proc/uptime", 1000))', 'j.put("uptime", readText("/proc/uptime", 1000))\n        j.put("partitionInfo", collectPartitionInfo())')
+          s = s.replace('j.put("gpu", gpuInfo)', 'j.put("gpu", gpuInfo)\n        j.put("mediaCodecs", collectMediaCodecs())')
+          old = '''    private fun collectCpuLoad(): String {
+          return try {
+              val first = readCpuCounters() ?: return "недоступно"
+              Thread.sleep(350)
+              val second = readCpuCounters() ?: return "недоступно"
+              val total = second.first - first.first
+              val idle = second.second - first.second
+              if (total <= 0) "недоступно"
+              else String.format(Locale.US, "%.1f%%", 100.0 * (total - idle).toDouble() / total)
+          } catch (_: Exception) {
+              "недоступно"
+          }
+      }
+      '''
+          new = '''    private fun collectCpuLoad(): String {
+          return try {
+              val samples = mutableListOf<Double>()
+              repeat(3) {
+                  val first = readCpuCounters() ?: return "недоступно"
+                  Thread.sleep(300)
+                  val second = readCpuCounters() ?: return "недоступно"
+                  val total = second.first - first.first
+                  val idle = second.second - first.second
+                  if (total > 0) samples.add(100.0 * (total - idle).toDouble() / total)
+              }
+              if (samples.isEmpty()) "недоступно"
+              else String.format(Locale.US, "средняя %.1f%%; диапазон %.1f–%.1f%% (3 замера)",
+                  samples.average(), samples.minOrNull(), samples.maxOrNull())
+          } catch (_: Exception) {
+              "недоступно"
+          }
+      }
+
+      private fun collectPartitionInfo(): JSONObject {
+          return JSONObject().apply {
+              put("procPartitions", readText("/proc/partitions", 12000))
+              put("mounts", readText("/proc/mounts", 12000))
+              val block = File("/sys/block")
+              val devices = JSONArray()
+              block.listFiles()?.sortedBy { it.name }?.forEach { devices.put(it.name) }
+              put("blockDevices", devices)
+          }
+      }
+
+      private fun collectMediaCodecs(): JSONArray {
+          val result = JSONArray()
+          return try {
+              val infos = MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
+              for (info in infos) {
+                  val videoTypes = info.supportedTypes.filter { it.startsWith("video/", ignoreCase = true) }
+                  if (videoTypes.isEmpty()) continue
+                  result.put(JSONObject().apply {
+                      put("name", info.name)
+                      put("encoder", info.isEncoder)
+                      put("videoTypes", JSONArray(videoTypes))
+                      if (Build.VERSION.SDK_INT >= 29) put("hardwareAccelerated", info.isHardwareAccelerated)
+                  })
+              }
+              result
+          } catch (e: Exception) {
+              result.put(JSONObject().put("error", e.message ?: "codec list unavailable"))
+              result
+          }
+      }
+      '''
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'private fun collectPartitionInfo()' not in s:
+              raise SystemExit("CPU load function anchor not found")
+          if 'private fun collectMediaCodecs()' not in s:
+              raise SystemExit("Media codec diagnostics were not inserted")
+          s = s.replace('tv-diagnostic-report-v030.json', 'tv-diagnostic-report-v040.json')
+          s = s.replace('appendLine("GPU")', '''appendLine("GPU")
+              appendLine(j.optString("gpu"))
+              val codecs = j.optJSONArray("mediaCodecs") ?: JSONArray()
+              appendLine("Видеокодеки: ${codecs.length()} записей (декодеры и энкодеры)")
+              appendLine()''', 1)
+          s = s.replace('appendLine("ЭКРАН")', '''appendLine("РАЗДЕЛЫ И НАКОПИТЕЛЬ")
+              val part = j.optJSONObject("partitionInfo") ?: JSONObject()
+              appendLine("Блочные устройства: ${part.optJSONArray("blockDevices")?.length() ?: 0}")
+              appendLine("Таблица /proc/partitions и точки монтирования включены в JSON")
+              appendLine()
+              appendLine("ЭКРАН")''', 1)
+          p.write_text(s)
+          assert '0.4.0' in s and 'collectMediaCodecs()' in s and 'collectPartitionInfo()' in s
+          print("Applied v0.4.0 version, multi-sample CPU load, video codec and partition diagnostics")
+          PY
+
       - name: Upload source snapshot for review
         uses: actions/upload-artifact@v4
         with:
