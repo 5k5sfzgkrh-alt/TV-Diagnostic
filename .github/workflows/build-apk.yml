@@ -131,6 +131,46 @@ jobs:
           assert "tv-diagnostic-report-v030.json" in p.read_text()
           print("Android TV-safe report export patch applied")
           PY
+      - name: Add report sharing button
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          export SRC
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path(os.environ["SRC"])
+          s = p.read_text()
+          old = '        val export = makeButton("Экспорт JSON") { exportReport() }\n'
+          new = old + '        val share = makeButton("Поделиться отчётом") { shareReport() }\n'
+          if old not in s: raise SystemExit("Export button anchor not found")
+          s = s.replace(old, new, 1)
+          old2 = '        buttons.addView(export)\n'
+          new2 = old2 + '        buttons.addView(share)\n'
+          if old2 not in s: raise SystemExit("Export button layout anchor not found")
+          s = s.replace(old2, new2, 1)
+          anchor = '    private fun formatReport(j: JSONObject): String {'
+          method = '''    private fun shareReport() {
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "Отчёт TV Diagnostic")
+                putExtra(android.content.Intent.EXTRA_TEXT, lastReport.toString(2))
+            }
+            startActivity(android.content.Intent.createChooser(intent, "Отправить отчёт"))
+            statusView.text = "Выбери приложение, через которое отправить отчёт"
+        } catch (e: Exception) {
+            statusView.text = "Не удалось открыть отправку: " + (e.message ?: e.javaClass.simpleName)
+        }
+    }
+
+'''
+          if anchor not in s: raise SystemExit("Report formatter anchor not found")
+          s = s.replace(anchor, method + anchor, 1)
+          p.write_text(s)
+          assert 'Поделиться отчётом' in s and 'private fun shareReport()' in s
+          print("Added share button and JSON share intent")
+          PY
+
       - name: Build debug APK
         run: gradle --no-daemon -p "$PROJECT_DIR" assembleDebug
 
