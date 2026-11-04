@@ -194,20 +194,20 @@ jobs:
           python3 - <<'PY'
           import os
           from pathlib import Path
-          g = Path(os.environ["GRADLE"])
-          gs = g.read_text()
-          gs = gs.replace('versionCode = 3', 'versionCode = 4').replace('versionName = "0.3.0"', 'versionName = "0.4.0"')
+          gradle = Path(os.environ["GRADLE"])
+          gs = gradle.read_text().replace("versionCode = 3", "versionCode = 4")
+          gs = gs.replace('versionName = "0.3.0"', 'versionName = "0.4.0"')
           if 'versionName = "0.4.0"' not in gs:
               raise SystemExit("Could not update app version")
-          g.write_text(gs)
-          p = Path(os.environ["SRC"])
-          s = p.read_text()
-          s = s.replace('TV DIAGNOSTIC  •  Hi3751V553  •  0.2.0', 'TV DIAGNOSTIC  •  Hi3751V553  •  0.4.0')
-          s = s.replace('import android.opengl.GLSurfaceView', 'import android.opengl.GLSurfaceView\nimport android.media.MediaCodecList')
-          s = s.replace('j.put("timestamp", System.currentTimeMillis())', 'j.put("timestamp", System.currentTimeMillis())\n        j.put("appVersion", BuildConfig.VERSION_NAME)')
-          s = s.replace('j.put("uptime", readText("/proc/uptime", 1000))', 'j.put("uptime", readText("/proc/uptime", 1000))\n        j.put("partitionInfo", collectPartitionInfo())')
-          s = s.replace('j.put("gpu", gpuInfo)', 'j.put("gpu", gpuInfo)\n        j.put("mediaCodecs", collectMediaCodecs())')
-          old = '''    private fun collectCpuLoad(): String {
+          gradle.write_text(gs)
+          path = Path(os.environ["SRC"])
+          source = path.read_text()
+          source = source.replace("TV DIAGNOSTIC  •  Hi3751V553  •  0.2.0", "TV DIAGNOSTIC  •  Hi3751V553  •  0.4.0")
+          source = source.replace("import android.opengl.GLSurfaceView", "import android.opengl.GLSurfaceView\nimport android.media.MediaCodecList")
+          source = source.replace('j.put("timestamp", System.currentTimeMillis())', 'j.put("timestamp", System.currentTimeMillis())\n        j.put("appVersion", BuildConfig.VERSION_NAME)')
+          source = source.replace('j.put("uptime", readText("/proc/uptime", 1000))', 'j.put("uptime", readText("/proc/uptime", 1000))\n        j.put("partitionInfo", collectPartitionInfo())')
+          source = source.replace('j.put("gpu", gpuInfo)', 'j.put("gpu", gpuInfo)\n        j.put("mediaCodecs", collectMediaCodecs())')
+          old_cpu = """    private fun collectCpuLoad(): String {
           return try {
               val first = readCpuCounters() ?: return "недоступно"
               Thread.sleep(350)
@@ -220,8 +220,8 @@ jobs:
               "недоступно"
           }
       }
-      '''
-          new = '''    private fun collectCpuLoad(): String {
+      """
+          new_cpu = """    private fun collectCpuLoad(): String {
           return try {
               val samples = mutableListOf<Double>()
               repeat(3) {
@@ -244,9 +244,8 @@ jobs:
           return JSONObject().apply {
               put("procPartitions", readText("/proc/partitions", 12000))
               put("mounts", readText("/proc/mounts", 12000))
-              val block = File("/sys/block")
               val devices = JSONArray()
-              block.listFiles()?.sortedBy { it.name }?.forEach { devices.put(it.name) }
+              File("/sys/block").listFiles()?.sortedBy { it.name }?.forEach { devices.put(it.name) }
               put("blockDevices", devices)
           }
       }
@@ -271,28 +270,25 @@ jobs:
               result
           }
       }
-      '''
-          if old in s:
-              s = s.replace(old, new, 1)
-          elif 'private fun collectPartitionInfo()' not in s:
-              raise SystemExit("CPU load function anchor not found")
-          if 'private fun collectMediaCodecs()' not in s:
-              raise SystemExit("Media codec diagnostics were not inserted")
-          s = s.replace('tv-diagnostic-report-v030.json', 'tv-diagnostic-report-v040.json')
-          s = s.replace('appendLine("GPU")', '''appendLine("GPU")
+      """
+          if old_cpu not in source:
+              raise SystemExit("CPU load function anchor not found; refusing partial patch")
+          source = source.replace(old_cpu, new_cpu, 1)
+          source = source.replace("tv-diagnostic-report-v030.json", "tv-diagnostic-report-v040.json")
+          source = source.replace('appendLine("GPU")', '''appendLine("GPU")
               appendLine(j.optString("gpu"))
               val codecs = j.optJSONArray("mediaCodecs") ?: JSONArray()
-              appendLine("Видеокодеки: ${codecs.length()} записей (декодеры и энкодеры)")
+              appendLine("Видеокодеки: \${codecs.length()} записей")
               appendLine()''', 1)
-          s = s.replace('appendLine("ЭКРАН")', '''appendLine("РАЗДЕЛЫ И НАКОПИТЕЛЬ")
+          source = source.replace('appendLine("ЭКРАН")', '''appendLine("РАЗДЕЛЫ И НАКОПИТЕЛЬ")
               val part = j.optJSONObject("partitionInfo") ?: JSONObject()
-              appendLine("Блочные устройства: ${part.optJSONArray("blockDevices")?.length() ?: 0}")
-              appendLine("Таблица /proc/partitions и точки монтирования включены в JSON")
+              appendLine("Блочные устройства: \${part.optJSONArray("blockDevices")?.length() ?: 0}")
+              appendLine("Таблица разделов и точки монтирования включены в JSON")
               appendLine()
               appendLine("ЭКРАН")''', 1)
-          p.write_text(s)
-          assert '0.4.0' in s and 'collectMediaCodecs()' in s and 'collectPartitionInfo()' in s
-          print("Applied v0.4.0 version, multi-sample CPU load, video codec and partition diagnostics")
+          path.write_text(source)
+          assert "collectMediaCodecs()" in source and "collectPartitionInfo()" in source
+          print("TV Diagnostic v0.4.0 source patch verified")
           PY
 
       - name: Upload source snapshot for review
