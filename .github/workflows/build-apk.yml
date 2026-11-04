@@ -60,6 +60,14 @@ jobs:
           done
           echo "Java target is left at the Android Gradle Plugin default (1.8); Kotlin target is aligned to 1.8."
 
+      - name: Print Kotlin error context for audit
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          echo "===== MainActivity.kt lines 315-345 ====="
+          sed -n '315,345p' "$SRC"
+          echo "===== MainActivity.kt lines 450-480 ====="
+          sed -n '450,480p' "$SRC"
+
       - name: Build debug APK
         run: gradle --no-daemon -p "$PROJECT_DIR" assembleDebug
 
