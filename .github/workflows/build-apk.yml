@@ -211,7 +211,7 @@ jobs:
           s = s.replace("import android.opengl.GLSurfaceView",
                         "import android.opengl.GLSurfaceView\nimport android.media.MediaCodecList", 1)
           s = s.replace('j.put("timestamp", System.currentTimeMillis())',
-                        'j.put("timestamp", System.currentTimeMillis())\n        j.put("appVersion", BuildConfig.VERSION_NAME)', 1)
+                        'j.put("timestamp", System.currentTimeMillis())\n        j.put("appVersion", "0.4.0")', 1)
           s = s.replace('j.put("uptime", readText("/proc/uptime", 1000))',
                         'j.put("uptime", readText("/proc/uptime", 1000))\n        j.put("partitionInfo", collectPartitionInfo())', 1)
           s = s.replace('j.put("gpu", gpuInfo)',
@@ -268,7 +268,7 @@ jobs:
             appendLine()
             appendLine("ЭКРАН")''', 1)
 
-          required = ["collectMediaCodecs()", "collectPartitionInfo()", "BuildConfig.VERSION_NAME"]
+          required = ["collectMediaCodecs()", "collectPartitionInfo()", 'j.put("appVersion", "0.4.0")']
           if not all(x in s for x in required):
               raise SystemExit("v0.4.0 source verification failed")
           path.write_text(s)
