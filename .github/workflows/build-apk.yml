@@ -418,7 +418,7 @@ jobs:
               if anchor not in s: raise SystemExit("v0.5 method insertion anchor missing")
               s = s.replace(anchor, methods + anchor, 1)
 
-          old_report = '''            appendLine("Сведения о /proc/partitions и /proc/mounts включены в JSON")'''
+          old_report = '''  appendLine("Сведения о /proc/partitions и /proc/mounts включены в JSON")'''
           new_report = '''            appendLine("Записей by-name: ${(part.optJSONArray("byNameEntries") ?: JSONArray()).length()}")
                       appendLine("Содержимое разделов не читалось и не изменялось")
                       val boot = j.optJSONObject("bootInfo") ?: JSONObject()
