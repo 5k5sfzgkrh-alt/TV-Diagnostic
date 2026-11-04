@@ -296,6 +296,7 @@ jobs:
           s = s.replace("Hi3751V553  •  0.4.0", "Hi3751V553  •  0.5.0", 1)
           s = s.replace('j.put("appVersion", "0.4.0")', 'j.put("appVersion", "0.5.0")', 1)
           s = s.replace("tv-diagnostic-report-v040.json", "tv-diagnostic-report-v050.json")
+          s = s.replace("private fun collectPartitionInfo(): JSONObject", "private fun collectPartitionInfoV040(): JSONObject", 1)
           old = 'j.put("partitionInfo", collectPartitionInfo())'
           new = old + '''
                   j.put("bootInfo", collectBootInfo())
