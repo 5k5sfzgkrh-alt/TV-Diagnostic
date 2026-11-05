@@ -27,6 +27,16 @@ jobs:
           test -s project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
           find project -maxdepth 5 -type f | sort | head -80
 
+      - name: Extend large backup Wi-Fi download window
+        run: |
+          SRC=project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
+          sed -i 's/server.soTimeout = 5 \* 60 \* 1000/server.soTimeout = 30 * 60 * 1000/' "$SRC"
+          sed -i 's/Одноразовая ссылка, 5 минут/Одноразовая ссылка, 30 минут/' "$SRC"
+          GRADLE=project/app/build.gradle.kts
+          sed -i 's/versionCode = 130/versionCode = 131/' "$GRADLE"
+          sed -i 's/versionName = "1.3.0"/versionName = "1.3.1"/' "$GRADLE"
+          grep -nE 'server.soTimeout|Одноразовая ссылка|versionCode|versionName' "$SRC" "$GRADLE"
+
       - name: Inspect Wi-Fi transfer timeout settings
         run: |
           grep -nEi 'timeout|serverSocket|ServerSocket|WiFi|wifi|http|TimeUnit' project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt | head -160 || true
