@@ -59,6 +59,7 @@ methods = r"""
                     throw IllegalStateException("Не удалось создать папку резервных копий")
 
                 val allowed = listOf("boot", "recovery")
+                val buffer = ByteArray(64 * 1024)
                 for (partition in allowed) {
                     runOnUiThread { statusView.text = "Подготовка раздела " + partition.uppercase() + "…" }
                     val device = "/dev/block/by-name/" + partition
@@ -81,9 +82,8 @@ methods = r"""
                     val blocks = bytes / blockSize
                     val file = File(dir, partition + "-" + System.currentTimeMillis() + ".img")
                     val hash = java.security.MessageDigest.getInstance("SHA-256")
-                    val buffer = ByteArray(64 * 1024)
                     var copied = 0L
-                    var proc: Process? = null
+                    var proc: java.lang.Process? = null
                     try {
                         val process = ProcessBuilder(
                             "su", "0", "dd", "if=" + device,
