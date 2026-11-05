@@ -204,8 +204,8 @@ if "private fun startSystemPartitionBackup()" not in s:
     s = s.replace(anchor, methods + anchor, 1)
 
 # Serve the archive under its actual filename, retaining the one-time token and timeout.
-old_header = '            "\\r\\nContent-Disposition: attachment; filename=\\\"dtbo.img\\\"" +'
-new_header = '            "\\r\\nContent-Disposition: attachment; filename=\\\"" + file.name + "\\\"" +'
+old_header = r'"\\r\\nContent-Disposition: attachment; filename=\\\"dtbo.img\\\"" +'
+new_header = r'"\\r\\nContent-Disposition: attachment; filename=\\\"" + file.name + "\\\"" +'
 if old_header in s:
     s = s.replace(old_header, new_header, 1)
 elif 'filename=\\\"' + '" + file.name' not in s:
