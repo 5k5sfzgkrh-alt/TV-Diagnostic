@@ -40,20 +40,11 @@ jobs:
           start = s.index("    private fun startLegacyArchiveHttpServer(")
           end = s.index("    private fun confirmSystemVendorBackup(", start)
           part = s[start:end]
-          old_out = '''                        if (request.startsWith("GET /download?token=$token HTTP/")) {
-                                    val out = client.getOutputStream()
-          '''
-          new_out = '''                        val out = client.getOutputStream()
-                        if (request.startsWith("GET /download?token=$token HTTP/")) {
-          '''
-          if old_out not in part:
-              # Handle the exact indentation present in the reviewed source.
-              old_out = '''                        if (request.startsWith("GET /download?token=$token HTTP/")) {
-                                    val out = client.getOutputStream()
-          '''
-          if old_out not in part:
-              raise SystemExit("Socket output declaration pattern not found")
-          part = part.replace(old_out, new_out, 1)
+          lines = part.splitlines()
+          lines = [line for line in lines if line.strip() != "val out = client.getOutputStream()"]
+          idx = next(i for i, line in enumerate(lines) if 'if (request.startsWith("GET /download?token=$token HTTP/"))' in line)
+          lines.insert(idx, "                        val out = client.getOutputStream()")
+          part = "\n".join(lines) + "\n"
           for before, after in [
               (r'\\r\\n', r'\r\n'),
               (r'\\n', r'\n'),
