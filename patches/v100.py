@@ -184,6 +184,7 @@ methods = r"""
 
                 while (backupServer === server) {
                     val socket = server.accept()
+                    var transferred = false
                     socket.use { client ->
                         client.soTimeout = 10000
                         val reader = client.getInputStream().bufferedReader(Charsets.ISO_8859_1)
@@ -210,9 +211,10 @@ methods = r"""
                             java.io.FileInputStream(file).use { it.copyTo(out, 64 * 1024) }
                             out.flush()
                             runOnUiThread { statusView.text = "DTBO передан на телефон. SHA-256: " + sha256 + "\nСервер остановлен." }
-                            break
+                            transferred = true
                         }
                     }
+                    if (transferred) break
                 }
             } catch (e: Exception) {
                 if (backupServer != null) runOnUiThread {
