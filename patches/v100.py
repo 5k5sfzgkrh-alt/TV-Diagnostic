@@ -238,6 +238,19 @@ if "private fun startDtboBackup()" not in s:
         raise SystemExit("Backup insertion anchor missing")
     s = s.replace(anchor, methods + anchor, 1)
 
+on_destroy_old = """    override fun onDestroy() {
+        super.onDestroy()
+        executor.shutdownNow()
+    }"""
+on_destroy_new = """    override fun onDestroy() {
+        try { backupServer?.close() } catch (_: Exception) { }
+        backupServer = null
+        super.onDestroy()
+        executor.shutdownNow()
+    }"""
+if on_destroy_old in s:
+    s = s.replace(on_destroy_old, on_destroy_new, 1)
+
 m = manifest.read_text()
 if "android.permission.INTERNET" not in m:
     marker = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
