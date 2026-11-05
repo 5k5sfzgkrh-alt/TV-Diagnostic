@@ -616,6 +616,13 @@ jobs:
           export SRC GRADLE
           python3 patches/v110.py
 
+      - name: Apply TV Diagnostic v1.2.0 Device Tree and kernel inventory
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+          export SRC GRADLE
+          python3 patches/v120.py
+
       - name: Upload source snapshot for review
         uses: actions/upload-artifact@v4
         with:
