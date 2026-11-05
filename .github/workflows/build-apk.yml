@@ -25,7 +25,6 @@ jobs:
           test -s project/settings.gradle.kts
           test -s project/app/build.gradle.kts
           test -s project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
-          echo "Project root: $GITHUB_WORKSPACE/project"
           find project -maxdepth 5 -type f | sort | head -80
 
       - name: Set up JDK 17
@@ -34,11 +33,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK_ROOT"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
