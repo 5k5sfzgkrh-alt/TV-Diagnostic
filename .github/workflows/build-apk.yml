@@ -594,6 +594,13 @@ jobs:
           export SRC GRADLE
           python3 patches/v080.py
 
+      - name: Apply TV Diagnostic v0.9.0 bounded read-only partition probe
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+          export SRC GRADLE
+          python3 patches/v090.py
+
       - name: Upload source snapshot for review
         uses: actions/upload-artifact@v4
         with:
