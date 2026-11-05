@@ -587,6 +587,13 @@ jobs:
           export SRC GRADLE
           python3 patches/v070.py
 
+      - name: Apply TV Diagnostic v0.8.0 extended read-only diagnostics
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+          export SRC GRADLE
+          python3 patches/v080.py
+
       - name: Upload source snapshot for review
         uses: actions/upload-artifact@v4
         with:
