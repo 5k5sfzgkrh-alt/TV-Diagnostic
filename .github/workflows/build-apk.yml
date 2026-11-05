@@ -14,77 +14,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unpack source project
+      - name: Unpack v1.3.3 source project
         run: |
-          ARCHIVE="TV-Diagnostic-v1.3.0-project-root.zip"
+          ARCHIVE="TV-Diagnostic-v1.3.3-project-root-reviewed.zip"
           test -s "$ARCHIVE"
           mkdir -p project
           unzip -q "$ARCHIVE" -d project
-          SRC=project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
-          GRADLE=project/app/build.gradle.kts
+          SRC="project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          GRADLE="project/app/build.gradle.kts"
           test -s "$SRC"
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path("project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt")
-          s=p.read_text()
-          s=s.replace('text = "TV DIAGNOSTIC  •  Hi3751V553  •  1.3.0"', 'text = "TV DIAGNOSTIC  •  Hi3751V553  •  1.3.2"')
-          s=s.replace('systemBackupButtons.addView(makeButton("Бэкап SYSTEM + VENDOR") { confirmSystemVendorBackup() })', 'systemBackupButtons.addView(makeButton("Бэкап SYSTEM + VENDOR") { confirmSystemVendorBackup() })\n        systemBackupButtons.addView(makeButton("Найти готовые архивы") { findExistingSystemVendorBackups() })')
-          s=s.replace('server.soTimeout = 5 * 60 * 1000','server.soTimeout = 30 * 60 * 1000')
-          s=s.replace('Одноразовая ссылка, 5 минут.','Одноразовая ссылка, 30 минут.')
-          s=s.replace('DTBO передан на телефон. SHA-256: ','Файл передан на телефон. SHA-256: ')
-          marker='    private fun stopBackupServer() {'
-          feature=r'''
-              // Search only this app's private backup folder; never traverse sensitive device paths.
-              private fun findExistingSystemVendorBackups() {
-                  if (backupServer != null) { statusView.text = "Сначала останови предыдущую Wi-Fi-передачу"; return }
-                  executor.execute {
-                      try {
-                          val dir = File(filesDir, "backups")
-                          val candidates = dir.listFiles()?.filter { it.isFile && it.name.startsWith("system-vendor-") && it.name.endsWith(".zip") }?.sortedByDescending { it.lastModified() } ?: emptyList()
-                          val valid = candidates.filter { file ->
-                              try { java.util.zip.ZipFile(file).use { zip ->
-                                  val system = zip.getEntry("SYSTEM.img")
-                                  val vendor = zip.getEntry("VENDOR.img")
-                                  val manifest = zip.getEntry("SHA256SUMS.txt")
-                                  system != null && vendor != null && manifest != null && system.size > 0 && vendor.size > 0
-                              } } catch (_: Exception) { false }
-                          }
-                          runOnUiThread {
-                              if (valid.isEmpty()) {
-                                  statusView.text = "Готовые архивы SYSTEM/VENDOR не найдены в папке этой версии приложения. Закрытые данные других установок могут быть недоступны."
-                              } else {
-                                  val labels = valid.map { it.name + " • " + android.text.format.Formatter.formatFileSize(this, it.length()) }.toTypedArray()
-                                  android.app.AlertDialog.Builder(this).setTitle("Найденные архивы SYSTEM/VENDOR")
-                                      .setItems(labels) { _, which -> retransmitExistingBackup(valid[which]) }
-                                      .setNegativeButton("Отмена", null).show()
-                              }
-                          }
-                      } catch (e: Exception) { runOnUiThread { statusView.text = "Поиск архивов завершился ошибкой: " + (e.message ?: e.javaClass.simpleName) } }
-                  }
-              }
-
-              private fun retransmitExistingBackup(file: File) {
-                  executor.execute {
-                      try {
-                          val digest = java.security.MessageDigest.getInstance("SHA-256")
-                          val buffer = ByteArray(64 * 1024)
-                          java.io.FileInputStream(file).use { input -> while (true) { val n = input.read(buffer); if (n < 0) break; if (n > 0) digest.update(buffer, 0, n) } }
-                          val sha = digest.digest().joinToString("") { "%02x".format(it) }
-                          runOnUiThread { statusView.text = "Архив проверен по структуре ZIP. SHA-256: " + sha + "\nПодготовка повторной передачи…" }
-                          startBackupHttpServer(file, sha)
-                      } catch (e: Exception) { runOnUiThread { statusView.text = "Не удалось подготовить архив: " + (e.message ?: e.javaClass.simpleName) } }
-                  }
-              }
-
-          '''
-          if marker not in s: raise SystemExit("stopBackupServer insertion point missing")
-          if "private fun findExistingSystemVendorBackups()" not in s: s=s.replace(marker,feature+marker)
-          p.write_text(s)
-          p=Path("project/app/build.gradle.kts")
-          g=p.read_text().replace('versionCode = 130','versionCode = 132').replace('versionName = "1.3.0"','versionName = "1.3.2"').replace('applicationId = "com.tvdiagnostic.hi3751"','applicationId = "com.tvdiagnostic.hi3751.v132"')
-          p.write_text(g)
-          PY
-          grep -nE 'server.soTimeout|Одноразовая ссылка|findExistingSystemVendorBackups|versionCode|versionName|applicationId' "$SRC" "$GRADLE"
+          test -s "$GRADLE"
+          grep -q 'versionCode = 133' "$GRADLE"
+          grep -q 'versionName = "1.3.3"' "$GRADLE"
+          grep -q 'com.tvdiagnostic.hi3751.v133' "$GRADLE"
+          grep -q '30 \* 60 \* 1000' "$SRC"
+          echo "Validated source project v1.3.3"
+          grep -nE 'server.soTimeout|versionCode|versionName|applicationId' "$SRC" "$GRADLE"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
