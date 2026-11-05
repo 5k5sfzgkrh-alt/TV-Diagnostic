@@ -601,6 +601,14 @@ jobs:
           export SRC GRADLE
           python3 patches/v090.py
 
+      - name: Apply TV Diagnostic v1.0.0 DTBO backup, SHA-256 and LAN transfer
+        run: |
+          SRC="$PROJECT_DIR/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
+          GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+          MANIFEST="$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          export SRC GRADLE MANIFEST
+          python3 patches/v100.py
+
       - name: Upload source snapshot for review
         uses: actions/upload-artifact@v4
         with:
