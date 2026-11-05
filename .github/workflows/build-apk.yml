@@ -37,21 +37,33 @@ jobs:
           from pathlib import Path
           p = Path("project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt")
           s = p.read_text(encoding="utf-8")
-          replacements = [
-              ('''                        if (request.startsWith("GET /download?token=$token HTTP/")) {\n                            val out = client.getOutputStream()\n''', '''                        val out = client.getOutputStream()\n                        if (request.startsWith("GET /download?token=$token HTTP/")) {\n'''),
-              ('"HTTP/1.1 200 OK\\\\\\\\r\\\\\\\\nContent-Type: application/zip\\\\\\\\r\\\\\\\\n" +', '"HTTP/1.1 200 OK\\\\r\\\\nContent-Type: application/zip\\\\r\\\\n" +'),
-              ('"Content-Length: $expectedSize\\\\\\\\r\\\\\\\\nContent-Disposition: attachment; filename=\\\\\\\\\\\\"$filename\\\\\\\\\\\\"\\\\\\\\r\\\\\\\\n" +', '"Content-Length: $expectedSize\\\\r\\\\nContent-Disposition: attachment; filename=\\\\"$filename\\\\"\\\\r\\\\n" +'),
-              ('"Cache-Control: no-store\\\\\\\\r\\\\\\\\nConnection: close\\\\\\\\r\\\\\\\\n\\\\\\\\r\\\\\\\\n"', '"Cache-Control: no-store\\\\r\\\\nConnection: close\\\\r\\\\n\\\\r\\\\n"'),
-              ("errors.append(line).append('\\\\\\\\n')", "errors.append(line).append('\\\\n')"),
-              ('"Архив 1.3.0 передан полностью: $sent байт\\\\\\\\nSHA-256: $sha\\\\\\\\nИсходный архив на ТВ не изменён."', '"Архив 1.3.0 передан полностью: $sent байт\\\\nSHA-256: $sha\\\\nИсходный архив на ТВ не изменён."'),
-              ('"HTTP/1.1 403 Forbidden\\\\\\\\r\\\\\\\\nContent-Length: ${body.size}\\\\\\\\r\\\\\\\\nConnection: close\\\\\\\\r\\\\\\\\n\\\\\\\\r\\\\\\\\n"', '"HTTP/1.1 403 Forbidden\\\\r\\\\nContent-Length: ${body.size}\\\\r\\\\nConnection: close\\\\r\\\\n\\\\r\\\\n"'),
-          ]
-          for old, new in replacements:
-              if old not in s:
-                  raise SystemExit("Expected source fragment not found; refusing partial patch: " + repr(old[:90]))
-              s = s.replace(old, new, 1)
+          start = s.index("    private fun startLegacyArchiveHttpServer(")
+          end = s.index("    private fun confirmSystemVendorBackup(", start)
+          part = s[start:end]
+          old_out = '''                        if (request.startsWith("GET /download?token=$token HTTP/")) {
+                                    val out = client.getOutputStream()
+          '''
+          new_out = '''                        val out = client.getOutputStream()
+                        if (request.startsWith("GET /download?token=$token HTTP/")) {
+          '''
+          if old_out not in part:
+              # Handle the exact indentation present in the reviewed source.
+              old_out = '''                        if (request.startsWith("GET /download?token=$token HTTP/")) {
+                                    val out = client.getOutputStream()
+          '''
+          if old_out not in part:
+              raise SystemExit("Socket output declaration pattern not found")
+          part = part.replace(old_out, new_out, 1)
+          for before, after in [
+              (r'\\r\\n', r'\r\n'),
+              (r'\\n', r'\n'),
+              (r'\\"', r'\"'),
+              (r"'\\n'", r"'\n'"),
+          ]:
+              part = part.replace(before, after)
+          s = s[:start] + part + s[end:]
           p.write_text(s, encoding="utf-8")
-          print("Patched Kotlin source: HTTP CRLF, quoted filename, newline char, shared socket output stream")
+          print("Applied targeted Kotlin HTTP transfer repair")
           PY
 
       - name: Print Kotlin compiler error context
