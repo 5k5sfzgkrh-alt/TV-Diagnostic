@@ -78,7 +78,7 @@ jobs:
 
           '''
           if marker not in s: raise SystemExit("stopBackupServer insertion point missing")
-          if "findExistingSystemVendorBackups" not in s: s=s.replace(marker,feature+marker)
+          if "private fun findExistingSystemVendorBackups()" not in s: s=s.replace(marker,feature+marker)
           p.write_text(s)
           p=Path("project/app/build.gradle.kts")
           g=p.read_text().replace('versionCode = 130','versionCode = 132').replace('versionName = "1.3.0"','versionName = "1.3.2"').replace('applicationId = "com.tvdiagnostic.hi3751"','applicationId = "com.tvdiagnostic.hi3751.v132"')
