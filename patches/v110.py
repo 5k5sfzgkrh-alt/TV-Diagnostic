@@ -85,11 +85,11 @@ methods = r"""
                     var copied = 0L
                     var proc: Process? = null
                     try {
-                        proc = ProcessBuilder(
+                        val process = ProcessBuilder(
                             "su", "0", "dd", "if=" + device,
                             "bs=" + blockSize, "count=" + blocks
                         ).start()
-                        val process = proc
+                        proc = process
                         val errors = StringBuilder()
                         val errorReader = Thread {
                             try {
