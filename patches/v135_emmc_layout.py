@@ -155,7 +155,7 @@ method = r"""
         var exitCode = -1
         var timedOut = false
         var error = ""
-        var process: Process? = null
+        var process: java.lang.Process? = null
         try {
             val running = ProcessBuilder("su", "0", "sh", "-c", command)
                 .redirectErrorStream(true)
