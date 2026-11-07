@@ -157,10 +157,10 @@ method = r"""
         var error = ""
         var process: Process? = null
         try {
-            process = ProcessBuilder("su", "0", "sh", "-c", command)
+            val running = ProcessBuilder("su", "0", "sh", "-c", command)
                 .redirectErrorStream(true)
                 .start()
-            val running = process
+            process = running
             val reader = Thread {
                 try {
                     running.inputStream.bufferedReader().useLines { lines ->
@@ -173,12 +173,12 @@ method = r"""
                 } catch (_: Exception) { }
             }
             reader.start()
-            if (!process.waitFor(8, java.util.concurrent.TimeUnit.SECONDS)) {
+            if (!running.waitFor(8, java.util.concurrent.TimeUnit.SECONDS)) {
                 timedOut = true
-                process.destroyForcibly()
-                process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)
+                running.destroyForcibly()
+                running.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)
             } else {
-                exitCode = process.exitValue()
+                exitCode = running.exitValue()
             }
             reader.join(1200)
         } catch (e: Exception) {
