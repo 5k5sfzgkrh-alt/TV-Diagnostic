@@ -44,7 +44,7 @@ jobs:
           gradle.write_text(s, encoding="utf-8")
           src = Path("project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt")
           s = src.read_text(encoding="utf-8")
-          s, title_count = re.subn(r'1\.3\.3', '1.3.5', s)
+          s, title_count = re.subn(r'1\.3\.3', '1.4.0', s)
           s, app_count = re.subn(r'put\("appVersion",\s*"1\.3\.0"\)', 'put("appVersion", "1.4.0")', s)
           s = s.replace("tv-diagnostic-report-v120.json", "tv-diagnostic-report-v140.json")
           if title_count < 1 or app_count != 1:
