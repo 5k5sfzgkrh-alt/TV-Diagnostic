@@ -58,8 +58,8 @@ jobs:
           for item in string_files:
               text = item.read_text(encoding="utf-8")
               updated, count = re.subn(
-                  r'(<string\\s+name="app_name"[^>]*>).*?(</string>)',
-                  r'\\1TV Diagnostic 1.4.0\\2',
+                  r'(<string\s+name="app_name"[^>]*>).*?(</string>)',
+                  r'\1TV Diagnostic 1.4.0\2',
                   text,
                   count=1,
                   flags=re.S
