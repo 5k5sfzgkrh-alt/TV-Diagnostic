@@ -29,7 +29,7 @@ jobs:
           grep -q 'com.tvdiagnostic.hi3751.v133' "$GRADLE"
           echo "Validated reviewed source project v1.3.3"
 
-      - name: Upgrade app metadata to v1.3.4
+      - name: Upgrade app metadata to v1.3.5
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -38,7 +38,7 @@ jobs:
           s = gradle.read_text(encoding="utf-8")
           s, n1 = re.subn(r'versionCode\s*=\s*133', 'versionCode = 135', s, count=1)
           s, n2 = re.subn(r'versionName\s*=\s*"1\.3\.3"', 'versionName = "1.3.5"', s, count=1)
-          s, n3 = re.subn(r'applicationId\s*=\s*"com\.tvdiagnostic\.hi3751\.v133"', 'applicationId = "com.tvdiagnostic.hi3751.v134"', s, count=1)
+          s, n3 = re.subn(r'applicationId\s*=\s*"com\.tvdiagnostic\.hi3751\.v133"', 'applicationId = "com.tvdiagnostic.hi3751.v135"', s, count=1)
           if (n1, n2, n3) != (1, 1, 1):
               raise SystemExit(f"Unexpected Gradle metadata: replacements={(n1,n2,n3)}")
           gradle.write_text(s, encoding="utf-8")
