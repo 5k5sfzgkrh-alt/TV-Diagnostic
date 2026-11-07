@@ -51,25 +51,23 @@ jobs:
               raise SystemExit(f"Unexpected app source: title replacements={title_count}, appVersion replacements={app_count}")
           src.write_text(s, encoding="utf-8")
           print("Updated UI/report version, JSON filename, package ID and versionCode")
-          # Make the installed launcher/app label visibly versioned.
-          res = Path("project/app/src/main/res")
-          string_files = list(res.rglob("strings.xml")) if res.exists() else []
-          label_updates = 0
-          for item in string_files:
-              text = item.read_text(encoding="utf-8")
-              updated, count = re.subn(
-                  r'(<string\s+name="app_name"[^>]*>).*?(</string>)',
-                  r'\1TV Diagnostic 1.4.0\2',
-                  text,
-                  count=1,
-                  flags=re.S
-              )
-              if count:
-                  item.write_text(updated, encoding="utf-8")
-                  label_updates += count
-          if label_updates != 1:
-              raise SystemExit(f"Expected exactly one app_name string, updated={label_updates}")
-          print("Set launcher label to TV Diagnostic 1.4.0")
+          # Set the launcher label directly in the manifest; the source archive
+          # does not contain a strings.xml app_name entry.
+          manifest = Path("project/app/src/main/AndroidManifest.xml")
+          if not manifest.is_file():
+              raise SystemExit("AndroidManifest.xml not found")
+          xml = manifest.read_text(encoding="utf-8")
+          xml, label_count = re.subn(
+              r'(<application\\b[^>]*\\bandroid:label=")[^"]*(")',
+              r'\\1TV Diagnostic 1.4.0\\2',
+              xml,
+              count=1,
+              flags=re.S
+          )
+          if label_count != 1:
+              raise SystemExit(f"Expected one application android:label attribute, updated={label_count}")
+          manifest.write_text(xml, encoding="utf-8")
+          print("Set manifest launcher label to TV Diagnostic 1.4.0")
 
           PY
           grep -nE 'versionCode|versionName|applicationId' project/app/build.gradle.kts
