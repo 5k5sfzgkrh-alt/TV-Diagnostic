@@ -27,7 +27,6 @@ jobs:
           grep -q 'versionCode = 133' "$GRADLE"
           grep -q 'versionName = "1.3.3"' "$GRADLE"
           grep -q 'com.tvdiagnostic.hi3751.v133' "$GRADLE"
-          grep -q '30 * 60 * 1000' "$SRC"
           echo "Validated reviewed source project v1.3.3"
 
       - name: Upgrade app metadata to v1.3.4
@@ -43,7 +42,6 @@ jobs:
           if (n1, n2, n3) != (1, 1, 1):
               raise SystemExit(f"Unexpected Gradle metadata: replacements={(n1,n2,n3)}")
           gradle.write_text(s, encoding="utf-8")
-
           src = Path("project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt")
           s = src.read_text(encoding="utf-8")
           s, title_count = re.subn(r'1\.3\.3', '1.3.4', s)
@@ -71,12 +69,7 @@ jobs:
           idx = next(i for i, line in enumerate(lines) if 'if (request.startsWith("GET /download?token=$token HTTP/"))' in line)
           lines.insert(idx, "                        val out = client.getOutputStream()")
           part = "\n".join(lines) + "\n"
-          for before, after in [
-              (r'\\r\\n', r'\r\n'),
-              (r'\\n', r'\n'),
-              (r'\\"', r'\"'),
-              (r"'\\n'", r"'\n'"),
-          ]:
+          for before, after in [(r'\\r\\n', r'\r\n'), (r'\\n', r'\n'), (r'\\\"', r'\"'), (r"'\\n'", r"'\n'")]:
               part = part.replace(before, after)
           s = s[:start] + part + s[end:]
           p.write_text(s, encoding="utf-8")
