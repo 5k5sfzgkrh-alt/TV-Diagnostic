@@ -71,6 +71,7 @@ jobs:
           part = "\n".join(lines) + "\n"
           for before, after in [(r'\\r\\n', r'\r\n'), (r'\\n', r'\n'), (r'\\\"', r'\"'), (r"'\\n'", r"'\n'")]:
               part = part.replace(before, after)
+          part = part.replace(chr(92) * 2 + '"', chr(92) + '"')
           s = s[:start] + part + s[end:]
           p.write_text(s, encoding="utf-8")
           print("Applied targeted Kotlin HTTP transfer repair")
