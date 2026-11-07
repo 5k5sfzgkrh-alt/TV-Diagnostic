@@ -51,22 +51,18 @@ jobs:
               raise SystemExit(f"Unexpected app source: title replacements={title_count}, appVersion replacements={app_count}")
           src.write_text(s, encoding="utf-8")
           print("Updated UI/report version, JSON filename, package ID and versionCode")
-          # Set the launcher label directly in the manifest; the source archive
-          # does not contain a strings.xml app_name entry.
+          # Set the launcher label directly in the manifest, whether or not
+          # the original manifest already declares android:label.
+          import xml.etree.ElementTree as ET
           manifest = Path("project/app/src/main/AndroidManifest.xml")
           if not manifest.is_file():
               raise SystemExit("AndroidManifest.xml not found")
-          xml = manifest.read_text(encoding="utf-8")
-          xml, label_count = re.subn(
-              r'(<application\\b[^>]*\\bandroid:label=")[^"]*(")',
-              r'\\1TV Diagnostic 1.4.0\\2',
-              xml,
-              count=1,
-              flags=re.S
-          )
-          if label_count != 1:
-              raise SystemExit(f"Expected one application android:label attribute, updated={label_count}")
-          manifest.write_text(xml, encoding="utf-8")
+          tree = ET.parse(manifest)
+          app = tree.getroot().find("application")
+          if app is None:
+              raise SystemExit("AndroidManifest.xml has no application element")
+          app.set("{http://schemas.android.com/apk/res/android}label", "TV Diagnostic 1.4.0")
+          tree.write(manifest, encoding="utf-8", xml_declaration=True)
           print("Set manifest launcher label to TV Diagnostic 1.4.0")
 
           PY
