@@ -11,9 +11,13 @@ android {
         applicationId = "tv.diagnostic"
         minSdk = 26
         targetSdk = 28
-        versionCode = 200
-        versionName = "2.0.0"
+        versionCode = 201
+        versionName = "2.0.1"
     }
+}
+
+dependencies {
+    implementation("com.google.zxing:core:3.5.3")
 }
 
 kotlin { jvmToolchain(17) }
