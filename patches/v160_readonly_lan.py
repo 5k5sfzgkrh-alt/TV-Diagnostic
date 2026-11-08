@@ -6,6 +6,28 @@ SRC=ROOT/"app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt"
 GRADLE=ROOT/"app/build.gradle.kts"
 MANIFEST=ROOT/"app/src/main/AndroidManifest.xml"
 s=SRC.read_text(encoding="utf-8")
+
+# Repair inherited v1.3.3 legacy archive HTTP handler before compiling.
+legacy_start=s.find("    private fun startLegacyArchiveHttpServer")
+legacy_end=s.find("    private fun confirmSystemVendorBackup", legacy_start)
+if legacy_start < 0 or legacy_end < 0 or legacy_end <= legacy_start:
+    raise SystemExit("Legacy archive HTTP handler anchors not found")
+legacy=s[legacy_start:legacy_end]
+if legacy.count(r'\\r\\n') != 11 or legacy.count(r'\\n') != 18:
+    raise SystemExit("Legacy HTTP escape count changed; refusing broad replacement")
+legacy=legacy.replace(r'\\r\\n', r'\r\n').replace(r'\\n', r'\n')
+bad_header=r'filename=\\"$filename\\"'
+if legacy.count(bad_header) != 1:
+    raise SystemExit("Legacy Content-Disposition quote anchor mismatch")
+legacy=legacy.replace(bad_header, r'filename=\"$filename\"')
+bad_scope='''                        if (request.startsWith("GET /download?token=$token HTTP/")) {
+                            val out = client.getOutputStream()'''
+good_scope='''                        val out = client.getOutputStream()
+                        if (request.startsWith("GET /download?token=$token HTTP/")) {'''
+if legacy.count(bad_scope) != 1:
+    raise SystemExit("Legacy HTTP output-stream scope anchor mismatch")
+legacy=legacy.replace(bad_scope, good_scope)
+s=s[:legacy_start]+legacy+s[legacy_end:]
 g=GRADLE.read_text(encoding="utf-8")
 if 'versionCode = 160' not in g or 'versionName = "1.6.0"' not in g:
     raise SystemExit("Not a v1.6.0 source tree")
