@@ -117,7 +117,8 @@ class MainActivity : Activity() {
     private fun scanRoot() {
         renderSummary("Выполняется ROOT-аудит…", "Команды чтения фиксированы; записи в системные разделы не выполняются.")
         io.execute {
-            val script = """\necho '=== ROOT_ID ==='; id
+            val script = """
+echo '=== ROOT_ID ==='; id
 echo '=== GETPROP ==='; getprop
 echo '=== CPUINFO ==='; cat /proc/cpuinfo
 echo '=== MEMINFO ==='; cat /proc/meminfo
@@ -214,7 +215,8 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
                     qrImage.setImageBitmap(bitmap); qrImage.visibility = android.view.View.VISIBLE
                     transferInfo?.text = "Отсканируй QR телефоном в той же сети Wi-Fi.\n$url\nТокен одноразовый; останови сервер после скачивания."
                 }
-                while (serverRunning) {
+                var served = false
+                while (serverRunning && !served) {
                     val client = socket.accept()
                     client.soTimeout = 5000
                     val reader = BufferedReader(InputStreamReader(client.getInputStream()))
@@ -226,6 +228,7 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
                     val out = client.getOutputStream()
                     out.write("HTTP/1.1 $status\r\nContent-Type: ${if (valid) "application/json; charset=utf-8" else "text/plain"}\r\nContent-Length: ${body.size}\r\nContent-Disposition: attachment; filename=\"tv-diagnostic-report.json\"\r\nConnection: close\r\n\r\n".toByteArray(Charsets.US_ASCII))
                     out.write(body); out.flush(); client.close()
+                    if (valid) { served = true; serverRunning = false }
                 }
             } catch (e: Exception) {
                 runOnUiThread { transferInfo?.text = "Передача завершена: ${e.message ?: "сервер остановлен"}" }
