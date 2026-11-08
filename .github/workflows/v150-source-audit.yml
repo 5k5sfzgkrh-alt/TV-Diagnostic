@@ -25,7 +25,7 @@ jobs:
           p = Path("project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt")
           lines = p.read_text(encoding="utf-8").splitlines()
           print("SOURCE_LINES", len(lines))
-          patterns = re.compile(r"fun .*?(report|json|share|export|fileprovider|create).*?\\(", re.I)
+          patterns = re.compile(r"^\\s*(?:private\\s+)?fun\\s+.*?(report|json|share|export|fileprovider|create)", re.I)
           hits = [i for i, line in enumerate(lines) if patterns.search(line)]
           print("MATCHING_DECLARATIONS", hits)
           shown = set()
