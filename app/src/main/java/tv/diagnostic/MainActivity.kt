@@ -50,6 +50,7 @@ class MainActivity : Activity() {
         root.addView(Button(this).apply { text = "Передать отчёт: QR / Wi-Fi"; setOnClickListener { startTransfer() } })
         root.addView(Button(this).apply { text = "Остановить Wi-Fi передачу"; setOnClickListener { stopTransfer(); transferInfo?.text = "Передача остановлена" } })
         root.addView(Button(this).apply { text = "Экспорт JSON"; setOnClickListener { shareReport() } })
+        root.addView(Button(this).apply { text = "Безопасное управление приложениями (2.1)"; setOnClickListener { openSafeDisableManager() } })
         qrImage = ImageView(this).apply { adjustViewBounds = true; visibility = android.view.View.GONE; scaleType = ImageView.ScaleType.FIT_CENTER }
         root.addView(qrImage, LinearLayout.LayoutParams(240, 240).apply { gravity = Gravity.CENTER })
         transferInfo = TextView(this).apply { textSize = 13f }
@@ -274,6 +275,135 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
             putExtra(Intent.EXTRA_TEXT, lastReport.toString(2))
         }
         startActivity(Intent.createChooser(intent, "Передать отчёт"))
+    }
+
+
+    // Firmware-specific reviewed allowlist. Intentionally empty until the APK audit proves
+    // a package safe on this exact CS2352P687 build. Never infer eligibility from app size/name.
+    private val safeDisableAllowlist = emptySet<String>()
+    private val safeDisablePrefs by lazy { getSharedPreferences("safe_disable_snapshot_v21", MODE_PRIVATE) }
+    private val protectedPackagePrefixes = listOf("android.", "com.android.", "com.google.android.", "com.hisilicon.", "com.huawei.")
+    private val protectedPackages = setOf(
+        "com.android.systemui", "com.android.settings", "com.android.launcher",
+        "com.google.android.permissioncontroller", "com.android.packageinstaller",
+        "com.android.providers.settings", "com.android.providers.media"
+    )
+
+    private fun protectedPackage(pkg: String): Boolean =
+        pkg in protectedPackages || protectedPackagePrefixes.any { pkg.startsWith(it) }
+
+    private fun openSafeDisableManager() {
+        val scroll = ScrollView(this)
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 12, 24, 12) }
+        panel.addView(TextView(this).apply {
+            textSize = 16f
+            text = "Режим обратимого управления. Перед каждым действием сохраняется снимок состояний. " +
+                "Зелёный статус выдаётся только после проверки зависимостей для точного fingerprint. " +
+                "Сейчас проверенный список пуст: отключение всех пакетов заблокировано."
+        })
+        val restore = Button(this).apply {
+            text = "Восстановить последний снимок"
+            setOnClickListener { restoreSafeDisableSnapshot(); openSafeDisableManager() }
+        }
+        panel.addView(restore)
+        val apps = try {
+            @Suppress("DEPRECATION")
+            packageManager.getInstalledApplications(PackageManager.GET_META_DATA).sortedBy { it.packageName }
+        } catch (e: Exception) {
+            panel.addView(TextView(this).apply { text = "Не удалось получить список: ${e.message}" })
+            emptyList()
+        }
+        apps.forEach { app ->
+            val pkg = app.packageName
+            val label = try { packageManager.getApplicationLabel(app).toString() } catch (_: Exception) { pkg }
+            val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 10, 0, 10) }
+            row.addView(TextView(this).apply { text = "$label\n$pkg" })
+            val eligible = pkg in safeDisableAllowlist && !protectedPackage(pkg)
+            row.addView(Button(this).apply {
+                text = if (eligible) "Отключить (обратимо)" else "Заблокировано: безопасность не подтверждена"
+                isEnabled = eligible
+                setOnClickListener { disablePackageWithSnapshot(pkg) }
+            })
+            panel.addView(row)
+        }
+        scroll.addView(panel)
+        android.app.AlertDialog.Builder(this)
+            .setTitle("TV Diagnostic 2.1 — управление")
+            .setView(scroll)
+            .setNegativeButton("Закрыть", null)
+            .show()
+    }
+
+    private fun rootPm(command: String): Pair<Boolean, String> {
+        return try {
+            val p = ProcessBuilder("su", "-c", command).redirectErrorStream(true).start()
+            val out = p.inputStream.bufferedReader().readText().take(4000)
+            val done = p.waitFor(12, TimeUnit.SECONDS)
+            if (!done) { p.destroyForcibly(); false to "Тайм-аут" }
+            else (p.exitValue() == 0) to out
+        } catch (e: Exception) { false to (e.message ?: "ROOT недоступен") }
+    }
+
+    private fun packageStateSnapshot(): String? {
+        val enabled = rootPm("pm list packages -e --user 0")
+        val disabled = rootPm("pm list packages -d --user 0")
+        if (!enabled.first || !disabled.first) return null
+        fun parse(s: String) = s.lines().mapNotNull {
+            it.trim().removePrefix("package:").takeIf { p -> p.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+")) }
+        }.toSet()
+        val e = parse(enabled.second)
+        val d = parse(disabled.second)
+        if (e.isEmpty() && d.isEmpty()) return null
+        return (e.map { "$it=enabled" } + d.map { "$it=disabled" }).sorted().joinToString("\n")
+    }
+
+    private fun disablePackageWithSnapshot(pkg: String) {
+        if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+")) ||
+            pkg !in safeDisableAllowlist || protectedPackage(pkg)) {
+            android.widget.Toast.makeText(this, "Операция заблокирована политикой безопасности.", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        val snapshot = packageStateSnapshot()
+        if (snapshot.isNullOrBlank()) {
+            android.widget.Toast.makeText(this, "Не удалось сохранить состояние. Отключение отменено.", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        safeDisablePrefs.edit().putString("snapshot", snapshot)
+            .putString("saved_at", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date()))
+            .apply()
+        val result = rootPm("pm disable-user --user 0 $pkg")
+        val verified = rootPm("pm list packages -d --user 0")
+        val confirmed = result.first && verified.first && verified.second.contains("package:$pkg")
+        if (!confirmed) {
+            rootPm("pm enable --user 0 $pkg")
+            android.widget.Toast.makeText(this, "Отключение не подтверждено; выполнена попытка немедленного отката.", android.widget.Toast.LENGTH_LONG).show()
+        } else {
+            android.widget.Toast.makeText(this, "Отключение подтверждено. Снимок сохранён для отката.", android.widget.Toast.LENGTH_LONG).show()
+        }
+        openSafeDisableManager()
+    }
+
+    private fun restoreSafeDisableSnapshot() {
+        val snapshot = safeDisablePrefs.getString("snapshot", null)
+        if (snapshot.isNullOrBlank()) {
+            android.widget.Toast.makeText(this, "Снимок состояния отсутствует.", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        var restored = 0
+        var failed = 0
+        snapshot.lines().forEach { line ->
+            val parts = line.split("=", limit = 2)
+            if (parts.size != 2) return@forEach
+            val pkg = parts[0]
+            if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+"))) return@forEach
+            val command = when (parts[1]) {
+                "enabled" -> "pm enable --user 0 $pkg"
+                "disabled" -> "pm disable-user --user 0 $pkg"
+                else -> return@forEach
+            }
+            if (rootPm(command).first) restored++ else failed++
+        }
+        android.widget.Toast.makeText(this, "Откат: команд успешно $restored, ошибок $failed. Сверь итоговое состояние.", android.widget.Toast.LENGTH_LONG).show()
     }
 
     override fun onDestroy() { stopTransfer(); io.shutdownNow(); serverExecutor.shutdownNow(); super.onDestroy() }
