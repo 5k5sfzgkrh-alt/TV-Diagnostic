@@ -90,11 +90,13 @@ class MainActivity : Activity() {
             try {
                 @Suppress("DEPRECATION")
                 val pi = packageManager.getPackageInfo(ai.packageName,
-                    PackageManager.GET_PERMISSIONS or PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS or PackageManager.GET_PROVIDERS)
+                    PackageManager.GET_PERMISSIONS or PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS or PackageManager.GET_PROVIDERS)
                 item.put("requested_permissions", JSONArray(pi.requestedPermissions?.toList() ?: emptyList<String>()))
-                item.put("service_count", pi.services?.size ?: 0)
-                item.put("receiver_count", pi.receivers?.size ?: 0)
-                item.put("provider_count", pi.providers?.size ?: 0)
+                item.put("activities", componentArray(pi.activities))
+                item.put("services", componentArray(pi.services))
+                item.put("receivers", componentArray(pi.receivers))
+                item.put("providers", componentArray(pi.providers))
+                item.put("analysis_status", "GRAY_UNASSESSED")
             } catch (_: Exception) { item.put("component_metadata", "недоступно") }
             apps.put(item)
         }
@@ -106,6 +108,19 @@ class MainActivity : Activity() {
         report.put("safety", safetyBlock())
         lastReport = report
         renderSummary("Базовый аудит завершён", "Пакетов: ${apps.length()}; видимых процессов: ${visible.length()}. Для полного системного снимка запусти ROOT-аудит.")
+    }
+
+    private fun componentArray(items: Array<out android.content.pm.ComponentInfo>?): JSONArray {
+        val result = JSONArray()
+        items?.forEach { component ->
+            result.put(JSONObject()
+                .put("name", component.name)
+                .put("process", component.processName)
+                .put("enabled", component.enabled)
+                .put("exported", component.exported)
+                .put("permission", component.permission ?: JSONObject.NULL))
+        }
+        return result
     }
 
     private fun safetyBlock() = JSONObject()
