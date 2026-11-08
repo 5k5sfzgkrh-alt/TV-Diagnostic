@@ -1,0 +1,34 @@
+name: Export reviewed TV Diagnostic source for v1.7.0
+on:
+  push:
+    branches:
+      - tv-diagnostic-v1.7.0-research
+    paths:
+      - .github/workflows/export-reviewed-source.yml
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tv-diagnostic-v1.7.0-research
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Unpack reviewed v1.3.3 source
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/tvsrc
+          unzip -q TV-Diagnostic-v1.3.3-project-root-reviewed.zip -d /tmp/tvsrc
+          mkdir -p research-base
+          cp -a /tmp/tvsrc/app research-base/
+          cp -a /tmp/tvsrc/build.gradle.kts /tmp/tvsrc/settings.gradle.kts /tmp/tvsrc/gradle.properties research-base/
+          find research-base -type f -maxdepth 8 -print
+      - name: Commit extracted source on research branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research-base
+          git commit -m "Export reviewed v1.6.2 source for v1.7.0 research work"
+          git push origin tv-diagnostic-v1.7.0-research
