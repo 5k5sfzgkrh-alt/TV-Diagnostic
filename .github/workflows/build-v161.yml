@@ -18,6 +18,23 @@ jobs:
           unzip -q TV-Diagnostic-v1.3.3-project-root-reviewed.zip -d project
           test -s project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
           grep -q 'versionCode = 133' project/app/build.gradle.kts
+      - name: Set v1.6.0 base metadata
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          p=Path("project/app/build.gradle.kts"); s=p.read_text()
+          for a,b in [("versionCode = 133","versionCode = 160"),('versionName = "1.3.3"','versionName = "1.6.0"')]:
+              if s.count(a)!=1: raise SystemExit("Gradle metadata anchor mismatch: "+a)
+              s=s.replace(a,b,1)
+          p.write_text(s)
+          m=Path("project/app/src/main/AndroidManifest.xml")
+          ET.register_namespace("android","http://schemas.android.com/apk/res/android")
+          t=ET.parse(m); app=t.getroot().find("application")
+          if app is None: raise SystemExit("No application element")
+          app.set("{http://schemas.android.com/apk/res/android}label","TV Diagnostic 1.6.0")
+          t.write(m,encoding="utf-8",xml_declaration=True)
+          PY
       - name: Apply read-only hardware and backup patches
         run: |
           set -euo pipefail
