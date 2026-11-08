@@ -69,6 +69,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Show Kotlin compiler context
+        run: nl -ba project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt | sed -n '2158,2225p'
       - name: Build debug APK
         run: gradle --no-daemon -p project :app:assembleDebug
       - name: Verify APK
