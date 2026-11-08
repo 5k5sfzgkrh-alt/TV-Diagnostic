@@ -2,7 +2,7 @@ name: Android APK
 
 on:
   push:
-    branches: [ "main", "feature/tv-diagnostic-2.0-readonly" ]
+    branches: [ "main", "feature/tv-diagnostic-2.0-readonly", "feature/tv-diagnostic-2.1-safe-disable" ]
   workflow_dispatch:
 
 permissions:
@@ -30,7 +30,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: TV-Diagnostic-2.0.0-debug-apk
+          name: TV-Diagnostic-2.1.0-debug-apk
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             APK-SHA256.txt
