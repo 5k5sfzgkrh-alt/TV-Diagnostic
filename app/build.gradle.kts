@@ -11,8 +11,8 @@ android {
         applicationId = "tv.diagnostic.cs2352p687"
         minSdk = 26
         targetSdk = 28
-        versionCode = 201
-        versionName = "2.0.1"
+        versionCode = 210
+        versionName = "2.1.0"
     }
 }
 
