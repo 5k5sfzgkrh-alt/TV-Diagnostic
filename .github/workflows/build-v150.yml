@@ -35,19 +35,24 @@ jobs:
           import re
           gradle = Path("project/app/build.gradle.kts")
           s = gradle.read_text(encoding="utf-8")
-          s, n1 = re.subn(r'versionCode\\s*=\\s*133', 'versionCode = 150', s, count=1)
-          s, n2 = re.subn(r'versionName\\s*=\\s*"1\\.3\\.3"', 'versionName = "1.5.0"', s, count=1)
-          s, n3 = re.subn(r'applicationId\\s*=\\s*"com\\.tvdiagnostic\\.hi3751\\.v133"', 'applicationId = "com.tvdiagnostic.hi3751.v150"', s, count=1)
-          if (n1, n2, n3) != (1, 1, 1):
-              raise SystemExit(f"Unexpected Gradle metadata: replacements={(n1,n2,n3)}")
+          replacements = [
+              ("versionCode = 133", "versionCode = 150"),
+              ('versionName = "1.3.3"', 'versionName = "1.5.0"'),
+              ('applicationId = "com.tvdiagnostic.hi3751.v133"', 'applicationId = "com.tvdiagnostic.hi3751.v150"')
+          ]
+          for old, new in replacements:
+              if s.count(old) != 1:
+                  raise SystemExit("Gradle metadata anchor mismatch: " + old)
+              s = s.replace(old, new, 1)
           gradle.write_text(s, encoding="utf-8")
           src = Path("project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt")
           s = src.read_text(encoding="utf-8")
-          s, title_count = re.subn(r'1\\.3\\.3', '1.5.0', s)
-          s, app_count = re.subn(r'put\\("appVersion",\\s*"1\\.3\\.0"\\)', 'put("appVersion", "1.5.0")', s)
+          s, title_count = re.subn(r'1\.3\.3', '1.5.0', s)
+          old = 'put("appVersion", "1.3.0")'
+          if s.count(old) != 1 or title_count < 1:
+              raise SystemExit(f"Unexpected app source: title={title_count}, appVersion={s.count(old)}")
+          s = s.replace(old, 'put("appVersion", "1.5.0")', 1)
           s = s.replace("tv-diagnostic-report-v120.json", "tv-diagnostic-report-v150.json")
-          if title_count < 1 or app_count != 1:
-              raise SystemExit(f"Unexpected app source: title={title_count}, appVersion={app_count}")
           src.write_text(s, encoding="utf-8")
           import xml.etree.ElementTree as ET
           manifest = Path("project/app/src/main/AndroidManifest.xml")
@@ -60,7 +65,7 @@ jobs:
           PY
           grep -nE 'versionCode|versionName|applicationId' project/app/build.gradle.kts
 
-      - name: Repair legacy Kotlin HTTP transfer source
+      - name: Repair v1.3.3 Kotlin HTTP transfer source
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -73,12 +78,13 @@ jobs:
           lines = [line for line in lines if line.strip() != "val out = client.getOutputStream()"]
           idx = next(i for i, line in enumerate(lines) if 'if (request.startsWith("GET /download?token=$token HTTP/"))' in line)
           lines.insert(idx, "                        val out = client.getOutputStream()")
-          part = "\\n".join(lines) + "\\n"
-          for before, after in [(r'\\\\r\\\\n', r'\\r\\n'), (r'\\\\n', r'\\n'), (r'\\\\\\\"', r'\\\"'), (r"'\\\\n'", r"'\\n'")]:
+          part = "\n".join(lines) + "\n"
+          for before, after in [(r'\\r\\n', r'\r\n'), (r'\\n', r'\n'), (r'\\\"', r'\"'), (r"'\\n'", r"'\n'")]:
               part = part.replace(before, after)
           part = part.replace(chr(92) * 2 + '"', chr(92) + '"')
           s = s[:start] + part + s[end:]
           p.write_text(s, encoding="utf-8")
+          print("Applied legacy HTTP transfer repair")
           PY
 
       - name: Apply existing read-only eMMC and performance diagnostics
@@ -102,7 +108,7 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDK_ROOT="\${ANDROID_HOME:-\${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           test -d "$SDK_ROOT"
           SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
           test -x "$SDKMANAGER"
