@@ -1,0 +1,43 @@
+name: v1.5.0 source audit
+
+on:
+  push:
+    branches: [ tv-diagnostic-v1.5.0 ]
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract reviewed source and inspect report/share implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p project
+          unzip -q TV-Diagnostic-v1.3.3-project-root-reviewed.zip -d project
+          SRC=project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt")
+          lines = p.read_text(encoding="utf-8").splitlines()
+          print("SOURCE_LINES", len(lines))
+          patterns = re.compile(r"fun .*?(report|json|share|export|fileprovider|create).*?\\(", re.I)
+          hits = [i for i, line in enumerate(lines) if patterns.search(line)]
+          print("MATCHING_DECLARATIONS", hits)
+          shown = set()
+          for i in hits:
+              lo, hi = max(0, i-8), min(len(lines), i+100)
+              if any(j in shown for j in range(lo, hi)):
+                  continue
+              shown.update(range(lo, hi))
+              print(f"\\n===== SOURCE LINES {lo+1}-{hi} =====")
+              for j in range(lo, hi):
+                  print(f"{j+1:04d}: {lines[j]}")
+          print("\\n===== MANIFEST =====")
+          manifest = Path("project/app/src/main/AndroidManifest.xml")
+          print(manifest.read_text(encoding="utf-8"))
+          PY
