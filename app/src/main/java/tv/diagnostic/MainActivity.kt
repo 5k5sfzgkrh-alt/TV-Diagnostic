@@ -156,11 +156,21 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
     private fun runRootReadOnly(script: String): Pair<Boolean, String> {
         return try {
             val p = ProcessBuilder("su", "-c", script).redirectErrorStream(true).start()
+            val captured = StringBuilder()
+            val reader = Thread {
+                p.inputStream.bufferedReader().useLines { lines ->
+                    lines.forEach { line -> if (captured.length < 1_500_000) captured.append(line).append('\\n') }
+                }
+            }
+            reader.start()
             val done = p.waitFor(25, TimeUnit.SECONDS)
-            if (!done) { p.destroyForcibly(); false to "Тайм-аут ROOT-команды (25 секунд)." }
-            else {
-                val text = p.inputStream.bufferedReader().use { it.readText() }.take(1_500_000)
-                (p.exitValue() == 0) to text
+            if (!done) {
+                p.destroyForcibly()
+                reader.join(1000)
+                false to "Тайм-аут ROOT-команды (25 секунд).\\n" + captured.toString()
+            } else {
+                reader.join(3000)
+                (p.exitValue() == 0) to captured.toString()
             }
         } catch (e: Exception) { false to "ROOT недоступен: ${e.javaClass.simpleName}: ${e.message}" }
     }
@@ -204,7 +214,7 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
                     val reader = BufferedReader(InputStreamReader(client.getInputStream()))
                     val request = reader.readLine() ?: ""
                     while (reader.readLine()?.isNotEmpty() == true) { }
-                    val valid = request.startsWith("GET /report?token=$token ")
+                    val valid = !served && request.startsWith("GET /report?token=$token ")
                     val body = if (valid) lastReport.toString(2).toByteArray(Charsets.UTF_8) else "Unauthorized".toByteArray()
                     val status = if (valid) "200 OK" else "403 Forbidden"
                     val out = client.getOutputStream()
