@@ -286,11 +286,12 @@ SRC.write_text(s, encoding="utf-8")
 # AndroidX FileProvider is used only for a read-only share URI to the verified app-private report.
 g = GRADLE.read_text(encoding="utf-8")
 if "androidx.core:core" not in g:
-    m = re.search(r"dependencies\s*\{", g)
-    if not m:
-        raise SystemExit("Gradle dependencies block not found")
-    pos = m.end()
-    g = g[:pos] + '\n    implementation("androidx.core:core:1.15.0")' + g[pos:]
+    m = re.search(r"dependencies\\s*\\{", g)
+    if m:
+        pos = m.end()
+        g = g[:pos] + '\\n    implementation("androidx.core:core:1.15.0")' + g[pos:]
+    else:
+        g = g.rstrip() + '\\n\\ndependencies {\\n    implementation("androidx.core:core:1.15.0")\\n}\\n'
     GRADLE.write_text(g, encoding="utf-8")
 
 tree = ET.parse(MANIFEST)
