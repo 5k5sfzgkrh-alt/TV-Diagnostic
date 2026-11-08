@@ -113,12 +113,18 @@ class MainActivity : Activity() {
     private fun componentArray(items: Array<out android.content.pm.ComponentInfo>?): JSONArray {
         val result = JSONArray()
         items?.forEach { component ->
+            val permission = when (component) {
+                is android.content.pm.ActivityInfo -> component.permission
+                is android.content.pm.ServiceInfo -> component.permission
+                is android.content.pm.ProviderInfo -> listOfNotNull(component.readPermission, component.writePermission).joinToString("|").ifEmpty { null }
+                else -> null
+            }
             result.put(JSONObject()
                 .put("name", component.name)
                 .put("process", component.processName)
                 .put("enabled", component.enabled)
                 .put("exported", component.exported)
-                .put("permission", component.permission ?: JSONObject.NULL))
+                .put("permission", permission ?: JSONObject.NULL))
         }
         return result
     }
