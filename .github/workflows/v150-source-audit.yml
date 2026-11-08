@@ -25,17 +25,9 @@ jobs:
           p = Path("project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt")
           lines = p.read_text(encoding="utf-8").splitlines()
           print("SOURCE_LINES", len(lines))
-          print("FUNCTION_SIGNATURES")
-          for i, line in enumerate(lines):
-              if "fun " in line or "override fun " in line:
-                  print(f"{i+1:04d}: {line}")
-          print("KEYWORD_LINES")
-          keywords = re.compile(r"json|report|share|export|FileProvider|ACTION_SEND|create.*file|openFileOutput", re.I)
-          hits = [i for i, line in enumerate(lines) if keywords.search(line)]
-          for i in hits:
-              lo, hi = max(0, i-5), min(len(lines), i+18)
-              print(f"\\n===== SOURCE LINES {lo+1}-{hi} =====")
-              for j in range(lo, hi):
+          for lo, hi in [(1, 105), (940, 1010), (130, 190)]:
+              print(f"\\n===== SOURCE LINES {lo}-{hi} =====")
+              for j in range(lo-1, min(len(lines), hi)):
                   print(f"{j+1:04d}: {lines[j]}")
           print("\\n===== MANIFEST =====")
           manifest = Path("project/app/src/main/AndroidManifest.xml")
