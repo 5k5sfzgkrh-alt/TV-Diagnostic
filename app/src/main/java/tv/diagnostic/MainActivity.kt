@@ -38,6 +38,7 @@ class MainActivity : Activity() {
     @Volatile private var server: ServerSocket? = null
     @Volatile private var serverRunning = false
     private val io = Executors.newSingleThreadExecutor()
+    private val serverExecutor = Executors.newSingleThreadExecutor()
     private var transferInfo: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -205,7 +206,7 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
         val ip = wifiIp()
         if (ip == null) { transferInfo?.text = "Не удалось определить IP. Подключи ТВ к Wi-Fi или Ethernet."; return }
         val token = UUID.randomUUID().toString().replace("-", "")
-        io.execute {
+        serverExecutor.execute {
             try {
                 val socket = ServerSocket(0)
                 server = socket; serverRunning = true
@@ -254,5 +255,5 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
         startActivity(Intent.createChooser(intent, "Передать отчёт"))
     }
 
-    override fun onDestroy() { stopTransfer(); io.shutdownNow(); super.onDestroy() }
+    override fun onDestroy() { stopTransfer(); io.shutdownNow(); serverExecutor.shutdownNow(); super.onDestroy() }
 }
