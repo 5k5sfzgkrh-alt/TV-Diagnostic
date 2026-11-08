@@ -55,6 +55,7 @@ jobs:
           s = s.replace("tv-diagnostic-report-v120.json", "tv-diagnostic-report-v150.json")
           src.write_text(s, encoding="utf-8")
           import xml.etree.ElementTree as ET
+          ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
           manifest = Path("project/app/src/main/AndroidManifest.xml")
           tree = ET.parse(manifest)
           app = tree.getroot().find("application")
