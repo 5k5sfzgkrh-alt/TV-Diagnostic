@@ -344,17 +344,16 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
         } catch (e: Exception) { false to (e.message ?: "ROOT недоступен") }
     }
 
-    private fun packageStateSnapshot(): String? {
+    private fun packageStateSnapshot(pkg: String): String? {
+        if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+"))) return null
         val enabled = rootPm("pm list packages -e --user 0")
         val disabled = rootPm("pm list packages -d --user 0")
         if (!enabled.first || !disabled.first) return null
-        fun parse(s: String) = s.lines().mapNotNull {
-            it.trim().removePrefix("package:").takeIf { p -> p.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+")) }
-        }.toSet()
-        val e = parse(enabled.second)
-        val d = parse(disabled.second)
-        if (e.isEmpty() && d.isEmpty()) return null
-        return (e.map { "$it=enabled" } + d.map { "$it=disabled" }).sorted().joinToString("\n")
+        return when {
+            enabled.second.contains("package:$pkg") -> "$pkg=enabled"
+            disabled.second.contains("package:$pkg") -> "$pkg=disabled"
+            else -> null
+        }
     }
 
     private fun disablePackageWithSnapshot(pkg: String) {
@@ -363,7 +362,7 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
             android.widget.Toast.makeText(this, "Операция заблокирована политикой безопасности.", android.widget.Toast.LENGTH_LONG).show()
             return
         }
-        val snapshot = packageStateSnapshot()
+        val snapshot = packageStateSnapshot(pkg)
         if (snapshot.isNullOrBlank()) {
             android.widget.Toast.makeText(this, "Не удалось сохранить состояние. Отключение отменено.", android.widget.Toast.LENGTH_LONG).show()
             return
@@ -389,21 +388,21 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
             android.widget.Toast.makeText(this, "Снимок состояния отсутствует.", android.widget.Toast.LENGTH_LONG).show()
             return
         }
-        var restored = 0
-        var failed = 0
-        snapshot.lines().forEach { line ->
-            val parts = line.split("=", limit = 2)
-            if (parts.size != 2) return@forEach
-            val pkg = parts[0]
-            if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+"))) return@forEach
-            val command = when (parts[1]) {
-                "enabled" -> "pm enable --user 0 $pkg"
-                "disabled" -> "pm disable-user --user 0 $pkg"
-                else -> return@forEach
-            }
-            if (rootPm(command).first) restored++ else failed++
+        val parts = snapshot.split("=", limit = 2)
+        if (parts.size != 2 || !parts[0].matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+"))) {
+            android.widget.Toast.makeText(this, "Снимок повреждён; откат не выполнен.", android.widget.Toast.LENGTH_LONG).show()
+            return
         }
-        android.widget.Toast.makeText(this, "Откат: команд успешно $restored, ошибок $failed. Сверь итоговое состояние.", android.widget.Toast.LENGTH_LONG).show()
+        val command = when (parts[1]) {
+            "enabled" -> "pm enable --user 0 ${parts[0]}"
+            "disabled" -> "pm disable-user --user 0 ${parts[0]}"
+            else -> {
+                android.widget.Toast.makeText(this, "Неизвестное состояние в снимке.", android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
+        }
+        val result = rootPm(command)
+        android.widget.Toast.makeText(this, if (result.first) "Предыдущее состояние восстановлено командой. Проверьте фактическое состояние пакета." else "Не удалось восстановить состояние: ${result.second}", android.widget.Toast.LENGTH_LONG).show()
     }
 
     override fun onDestroy() { stopTransfer(); io.shutdownNow(); serverExecutor.shutdownNow(); super.onDestroy() }
