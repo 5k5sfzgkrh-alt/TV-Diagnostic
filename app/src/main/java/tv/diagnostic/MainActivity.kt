@@ -129,9 +129,11 @@ echo '=== CMDLINE ==='; cat /proc/cmdline
 echo '=== DT_MODEL ==='; cat /sys/firmware/devicetree/base/model 2>/dev/null
 echo '=== DT_COMPATIBLE ==='; cat /sys/firmware/devicetree/base/compatible 2>/dev/null
 echo '=== BLOCK_BY_NAME ==='; ls -l /dev/block/by-name 2>/dev/null
-echo '=== BLOCK_MMC ==='; ls -l /dev/block/mmc* 2>/dev/null
+echo '=== BLOCK_MMC ==='; ls -l /dev/block/mmc* /dev/block/platform/*/by-name 2>/dev/null
+echo '=== EMMC_SYSFS ==='; cat /sys/block/mmcblk0/size /sys/block/mmcblk0/queue/logical_block_size /sys/block/mmcblk0/device/type /sys/block/mmcblk0/device/name 2>/dev/null
 echo '=== WIFI_SYSFS ==='; ls -l /sys/class/net 2>/dev/null
 echo '=== WLAN_MODULES ==='; ls -l /sys/module 2>/dev/null
+echo '=== GPU_SYSFS ==='; ls -l /sys/class/misc/mali* /sys/class/devfreq/*gpu* /proc/mali 2>/dev/null
 echo '=== DRM ==='; ls -R /sys/class/drm 2>/dev/null
 echo '=== DISPLAY_SYSFS ==='; ls -R /sys/class/graphics /sys/class/backlight /sys/class/display 2>/dev/null
 echo '=== PANEL_TCON ==='; find /sys -maxdepth 5 -iname '*panel*' -o -iname '*tcon*' 2>/dev/null | head -n 300
