@@ -117,8 +117,7 @@ class MainActivity : Activity() {
     private fun scanRoot() {
         renderSummary("Выполняется ROOT-аудит…", "Команды чтения фиксированы; записи в системные разделы не выполняются.")
         io.execute {
-            val script = """
-echo '=== ROOT_ID ==='; id
+            val script = """\necho '=== ROOT_ID ==='; id
 echo '=== GETPROP ==='; getprop
 echo '=== CPUINFO ==='; cat /proc/cpuinfo
 echo '=== MEMINFO ==='; cat /proc/meminfo
@@ -129,58 +128,24 @@ echo '=== CMDLINE ==='; cat /proc/cmdline
 echo '=== DT_MODEL ==='; cat /sys/firmware/devicetree/base/model 2>/dev/null
 echo '=== DT_COMPATIBLE ==='; cat /sys/firmware/devicetree/base/compatible 2>/dev/null
 echo '=== BLOCK_BY_NAME ==='; ls -l /dev/block/by-name 2>/dev/null
-echo '=== BLOCK_MMС ==='; ls -l /dev/block/mmc* 2>/dev/null
+echo '=== BLOCK_MMC ==='; ls -l /dev/block/mmc* 2>/dev/null
 echo '=== WIFI_SYSFS ==='; ls -l /sys/class/net 2>/dev/null
 echo '=== WLAN_MODULES ==='; ls -l /sys/module 2>/dev/null
 echo '=== DRM ==='; ls -R /sys/class/drm 2>/dev/null
- echo '=== DISPLAY_SYSFS ==='; ls -R /sys/class/graphics 2>/dev/null; ls -R /sys/class/backlight 2>/dev/null; ls -R /sys/class/display 2>/dev/null
- echo '=== PANEL_TCON ==='; find /sys -maxdepth 5 -iname '*panel*' -o -iname '*tcon*' 2>/dev/null | head -n 300
-echo '=== FRAMEBUFFER ==='; cat /sys/class/graphics/fb0/virtual_size 2>/dev/null; cat /sys/class/graphics/fb0/bits_per_pixel 2>/dev/null
-echo '=== FSTAB ==='; for f in /vendor/etc/fstab* /odm/etc/fstab*; do [ -f "${'" ] && echo "--- $f" && cat "$f"; done
+echo '=== DISPLAY_SYSFS ==='; ls -R /sys/class/graphics /sys/class/backlight /sys/class/display 2>/dev/null
+echo '=== PANEL_TCON ==='; find /sys -maxdepth 5 -iname '*panel*' -o -iname '*tcon*' 2>/dev/null | head -n 300
+echo '=== FRAMEBUFFER ==='; cat /sys/class/graphics/fb0/virtual_size /sys/class/graphics/fb0/bits_per_pixel 2>/dev/null
+echo '=== FSTAB ==='; cat /vendor/etc/fstab.bigfish /vendor/etc/fstab.swap.bigfish 2>/dev/null
 echo '=== VINTF_VENDOR ==='; cat /vendor/etc/vintf/manifest.xml 2>/dev/null
 echo '=== VINTF_SYSTEM ==='; cat /system/etc/vintf/manifest.xml 2>/dev/null
 echo '=== INIT_LIST ==='; ls -l /vendor/etc/init /vendor/etc/init/hw /system/etc/init 2>/dev/null
- echo '=== ANDROID_SERVICES ==='; service list 2>/dev/null
- echo '=== HAL_SERVICES ==='; lshal 2>/dev/null
- echo '=== DUMPSYS_SERVICES ==='; dumpsys -l 2>/dev/null
+echo '=== ANDROID_SERVICES ==='; service list 2>/dev/null
+echo '=== HAL_SERVICES ==='; lshal 2>/dev/null
+echo '=== DUMPSYS_SERVICES ==='; dumpsys -l 2>/dev/null
 echo '=== INIT_BIGFISH ==='; cat /vendor/etc/init/hw/init.bigfish.rc 2>/dev/null
-echo '=== BUILD_PROPS ==='; for f in /system/build.prop /vendor/build.prop /system/product/etc/build.prop /system_ext/build.prop; do [ -f "$f" ] && echo "--- $f" && cat "$f"; done
-echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|firmware|panel|tcon|mali|hisilicon' | tail -n 250
-}f" ] && echo "--- ${'" && cat "$f"; done
-echo '=== VINTF_VENDOR ==='; cat /vendor/etc/vintf/manifest.xml 2>/dev/null
-echo '=== VINTF_SYSTEM ==='; cat /system/etc/vintf/manifest.xml 2>/dev/null
-echo '=== INIT_LIST ==='; ls -l /vendor/etc/init /vendor/etc/init/hw /system/etc/init 2>/dev/null
- echo '=== ANDROID_SERVICES ==='; service list 2>/dev/null
- echo '=== HAL_SERVICES ==='; lshal 2>/dev/null
- echo '=== DUMPSYS_SERVICES ==='; dumpsys -l 2>/dev/null
-echo '=== INIT_BIGFISH ==='; cat /vendor/etc/init/hw/init.bigfish.rc 2>/dev/null
-echo '=== BUILD_PROPS ==='; for f in /system/build.prop /vendor/build.prop /system/product/etc/build.prop /system_ext/build.prop; do [ -f "$f" ] && echo "--- $f" && cat "$f"; done
-echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|firmware|panel|tcon|mali|hisilicon' | tail -n 250
-}f" && cat "${'"; done
-echo '=== VINTF_VENDOR ==='; cat /vendor/etc/vintf/manifest.xml 2>/dev/null
-echo '=== VINTF_SYSTEM ==='; cat /system/etc/vintf/manifest.xml 2>/dev/null
-echo '=== INIT_LIST ==='; ls -l /vendor/etc/init /vendor/etc/init/hw /system/etc/init 2>/dev/null
- echo '=== ANDROID_SERVICES ==='; service list 2>/dev/null
- echo '=== HAL_SERVICES ==='; lshal 2>/dev/null
- echo '=== DUMPSYS_SERVICES ==='; dumpsys -l 2>/dev/null
-echo '=== INIT_BIGFISH ==='; cat /vendor/etc/init/hw/init.bigfish.rc 2>/dev/null
-echo '=== BUILD_PROPS ==='; for f in /system/build.prop /vendor/build.prop /system/product/etc/build.prop /system_ext/build.prop; do [ -f "$f" ] && echo "--- $f" && cat "$f"; done
-echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|firmware|panel|tcon|mali|hisilicon' | tail -n 250
-}f"; done
-echo '=== VINTF_VENDOR ==='; cat /vendor/etc/vintf/manifest.xml 2>/dev/null
-echo '=== VINTF_SYSTEM ==='; cat /system/etc/vintf/manifest.xml 2>/dev/null
-echo '=== INIT_LIST ==='; ls -l /vendor/etc/init /vendor/etc/init/hw /system/etc/init 2>/dev/null
- echo '=== ANDROID_SERVICES ==='; service list 2>/dev/null
- echo '=== HAL_SERVICES ==='; lshal 2>/dev/null
- echo '=== DUMPSYS_SERVICES ==='; dumpsys -l 2>/dev/null
-echo '=== INIT_BIGFISH ==='; cat /vendor/etc/init/hw/init.bigfish.rc 2>/dev/null
-echo '=== BUILD_PROPS ==='; for f in /system/build.prop /vendor/build.prop /system/product/etc/build.prop /system_ext/build.prop; do [ -f "${'" ] && echo "--- $f" && cat "$f"; done
-echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|firmware|panel|tcon|mali|hisilicon' | tail -n 250
-}f" ] && echo "--- ${'" && cat "$f"; done
-echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|firmware|panel|tcon|mali|hisilicon' | tail -n 250
-}f" && cat "${'"; done
-echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|firmware|panel|tcon|mali|hisilicon' | tail -n 250
-}f"; done
+echo '=== BUILD_PROP_SYSTEM ==='; cat /system/build.prop 2>/dev/null
+echo '=== BUILD_PROP_VENDOR ==='; cat /vendor/build.prop 2>/dev/null
+echo '=== BUILD_PROP_PRODUCT ==='; cat /system/product/etc/build.prop 2>/dev/null
 echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|firmware|panel|tcon|mali|hisilicon' | tail -n 250
 """.trimIndent()
             val result = runRootReadOnly(script)
@@ -200,7 +165,7 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
             val captured = StringBuilder()
             val reader = Thread {
                 p.inputStream.bufferedReader().useLines { lines ->
-                    lines.forEach { line -> if (captured.length < 1_500_000) captured.append(line).append('\\n') }
+                    lines.forEach { line -> if (captured.length < 1_500_000) captured.append(line).append(10.toChar()) }
                 }
             }
             reader.start()
