@@ -1,0 +1,79 @@
+name: Build TV Diagnostic v1.6.1 backup LAN fix
+on:
+  push:
+    branches: [ tv-diagnostic-v1.6.1-backup-lan-fix ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack reviewed source
+        run: |
+          set -euo pipefail
+          mkdir -p project
+          unzip -q TV-Diagnostic-v1.3.3-project-root-reviewed.zip -d project
+          test -s project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
+          grep -q 'versionCode = 133' project/app/build.gradle.kts
+      - name: Apply read-only hardware and backup patches
+        run: |
+          set -euo pipefail
+          python3 patches/v135_emmc_layout.py
+          python3 patches/v140_performance_readonly.py
+          python3 patches/v150_readonly_report_hardware.py
+          python3 patches/v160_readonly_lan.py
+          python3 patches/v161_backup_lan_fix.py
+      - name: Verify backup transfer and write-safety
+        run: |
+          set -euo pipefail
+          SRC=project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
+          grep -q 'File(filesDir,"backups")' "$SRC"
+          grep -q 'private fun startLanTransferServer' "$SRC"
+          grep -q 'Accept-Ranges: bytes' "$SRC"
+          grep -q 'MessageDigest.isEqual' "$SRC"
+          grep -q 'confirmDtboBackup()' "$SRC"
+          grep -q 'confirmSystemBackup()' "$SRC"
+          grep -q 'confirmSystemVendorBackup()' "$SRC"
+          grep -q 'versionCode = 161' project/app/build.gradle.kts
+          grep -q 'versionName = "1.6.1"' project/app/build.gradle.kts
+          ! grep -E 'fastboot flash|dd of=|flash_image|erase_partition|blockdev --setrw' "$SRC"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK_ROOT"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build debug APK
+        run: gradle --no-daemon -p project :app:assembleDebug
+      - name: Verify APK signature and calculate hash
+        run: |
+          set -euo pipefail
+          APK=project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          sha256sum "$APK" | tee project/APK-SHA256.txt
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort | tail -n 1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee project/APK-SIGNATURE.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -E "package:|application-label:"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TV-Diagnostic-v1.6.1-debug-apk
+          path: |
+            project/app/build/outputs/apk/debug/app-debug.apk
+            project/APK-SHA256.txt
+            project/APK-SIGNATURE.txt
+          if-no-files-found: error
+          retention-days: 14
