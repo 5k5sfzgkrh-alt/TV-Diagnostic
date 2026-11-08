@@ -44,6 +44,7 @@ jobs:
           python3 patches/v160_readonly_lan.py
           python3 patches/v161_backup_lan_fix.py
           python3 patches/v162_qr_version.py
+          python3 patches/v162_fix_stale_ui_version.py
       - name: Verify backup transfer and write-safety
         run: |
           set -euo pipefail
@@ -62,6 +63,7 @@ jobs:
           grep -q 'tv_lan_qr' "$SRC"
           grep -q 'com.google.zxing:core:3.5.3' project/app/build.gradle.kts
           grep -q 'TV Diagnostic 1.6.2' project/app/src/main/AndroidManifest.xml
+          ! grep -q '1.3.3' "$SRC"
           ! grep -E 'fastboot flash|dd of=|flash_image|erase_partition|blockdev --setrw' "$SRC"
       - uses: actions/setup-java@v4
         with:
