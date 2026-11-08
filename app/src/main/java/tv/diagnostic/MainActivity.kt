@@ -345,7 +345,7 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
     }
 
     private fun packageStateSnapshot(pkg: String): String? {
-        if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+"))) return null
+        if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+"))) return null
         val enabled = rootPm("pm list packages -e --user 0")
         val disabled = rootPm("pm list packages -d --user 0")
         if (!enabled.first || !disabled.first) return null
@@ -357,7 +357,7 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
     }
 
     private fun disablePackageWithSnapshot(pkg: String) {
-        if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+")) ||
+        if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+")) ||
             pkg !in safeDisableAllowlist || protectedPackage(pkg)) {
             android.widget.Toast.makeText(this, "Операция заблокирована политикой безопасности.", android.widget.Toast.LENGTH_LONG).show()
             return
@@ -372,7 +372,7 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
             .apply()
         val result = rootPm("pm disable-user --user 0 $pkg")
         val verified = rootPm("pm list packages -d --user 0")
-        val confirmed = result.first && verified.first && verified.second.contains("package:$pkg")
+        val confirmed = result.first && verified.first && verified.second.lines().any { it.trim() == "package:$pkg" }
         if (!confirmed) {
             rootPm("pm enable --user 0 $pkg")
             android.widget.Toast.makeText(this, "Отключение не подтверждено; выполнена попытка немедленного отката.", android.widget.Toast.LENGTH_LONG).show()
@@ -389,7 +389,7 @@ echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|fi
             return
         }
         val parts = snapshot.split("=", limit = 2)
-        if (parts.size != 2 || !parts[0].matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+"))) {
+        if (parts.size != 2 || !parts[0].matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+"))) {
             android.widget.Toast.makeText(this, "Снимок повреждён; откат не выполнен.", android.widget.Toast.LENGTH_LONG).show()
             return
         }
