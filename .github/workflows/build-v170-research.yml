@@ -1,0 +1,107 @@
+name: Build TV Diagnostic 1.7.0 Research
+on:
+  push:
+    branches: [ tv-diagnostic-v1.7.0-research ]
+    paths:
+      - patches/v170_research_processes_services.py
+      - .github/workflows/build-v170-research.yml
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack reviewed source
+        run: |
+          set -euo pipefail
+          mkdir -p project
+          unzip -q TV-Diagnostic-v1.3.3-project-root-reviewed.zip -d project
+          test -s project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
+      - name: Set base version metadata
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          p=Path("project/app/build.gradle.kts"); s=p.read_text()
+          s=s.replace("versionCode = 133","versionCode = 160",1).replace('versionName = "1.3.3"','versionName = "1.6.0"',1)
+          p.write_text(s)
+          m=Path("project/app/src/main/AndroidManifest.xml")
+          ET.register_namespace("android","http://schemas.android.com/apk/res/android")
+          t=ET.parse(m); app=t.getroot().find("application")
+          app.set("{http://schemas.android.com/apk/res/android}label","TV Diagnostic 1.6.0")
+          t.write(m,encoding="utf-8",xml_declaration=True)
+          PY
+      - name: Apply verified v1.6.2 foundation
+        run: |
+          set -euo pipefail
+          python3 patches/v135_emmc_layout.py
+          python3 patches/v140_performance_readonly.py
+          python3 patches/v150_readonly_report_hardware.py
+          python3 patches/v160_readonly_lan.py
+          python3 patches/v161_backup_lan_fix.py
+          python3 patches/v162_qr_version.py
+          python3 patches/v162_fix_stale_ui_version.py
+      - name: Add live process and full snapshot research
+        run: python3 patches/v170_research_processes_services.py
+      - name: Verify v1.7.0 and read-only guarantees
+        run: |
+          set -euo pipefail
+          SRC=project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
+          NEW=project/app/src/main/java/com/tvdiagnostic/hi3751/ProcessResearchActivity.kt
+          grep -q 'File(filesDir,"backups")' "$SRC"
+          grep -q 'private fun startLanTransferServer' "$SRC"
+          grep -q 'Accept-Ranges: bytes' "$SRC"
+          grep -q 'MessageDigest.isEqual' "$SRC"
+          grep -q 'MultiFormatWriter' "$SRC"
+          grep -q 'confirmDtboBackup()' "$SRC"
+          grep -q 'confirmSystemBackup()' "$SRC"
+          grep -q 'confirmSystemVendorBackup()' "$SRC"
+          grep -q 'versionCode = 170' project/app/build.gradle.kts
+          grep -q 'versionName = "1.7.0"' project/app/build.gradle.kts
+          grep -q 'ProcessResearchActivity' "$SRC"
+          grep -q 'tv-diagnostic-research-1' "$NEW"
+          grep -q 'dumpsys activity services' "$NEW"
+          grep -q 'service list' "$NEW"
+          grep -q 'lshal' "$NEW"
+          grep -q '/proc/modules' "$NEW"
+          grep -q 'research-snapshot-' "$NEW"
+          ! grep -E 'fastboot flash|dd of=|flash_image|erase_partition|blockdev --setrw|stop [a-zA-Z_]' "$NEW"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK_ROOT"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build debug APK
+        run: gradle --no-daemon -p project :app:assembleDebug
+      - name: Verify APK signature and calculate hash
+        run: |
+          set -euo pipefail
+          APK=project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          sha256sum "$APK" | tee project/APK-SHA256.txt
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort | tail -n 1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee project/APK-SIGNATURE.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -E "package:|application-label:"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TV-Diagnostic-v1.7.0-research-debug-apk
+          path: |
+            project/app/build/outputs/apk/debug/app-debug.apk
+            project/APK-SHA256.txt
+            project/APK-SIGNATURE.txt
+          if-no-files-found: error
+          retention-days: 14
