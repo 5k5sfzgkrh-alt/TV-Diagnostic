@@ -67,3 +67,11 @@ Chrome, Tubesky, HkGuide, MovieArk, DolphinWebWindow, DolphinTVStore, HkMusic, H
 ## Current verified repository limitation
 
 The inspected 2.0 branch manifest and README establish a basic diagnostic-only app. They do not establish that ROOT auditing, QR transfer, APK dependency analysis, or reversible disable functionality is implemented. These capabilities must be verified in source and on physical hardware before being described as available.
+
+## Реализация в ветке 2.1
+
+В `MainActivity.kt` добавлен экран безопасного управления пакетами: инвентаризация установленных приложений, отдельный элемент управления для каждого пакета, ROOT-адаптер команд `pm`, снимок исходного enabled/disabled-состояния одного изменяемого пакета до операции и восстановление этого состояния.
+
+**Критическое ограничение текущего коммита:** `safeDisableAllowlist` намеренно пуст. Все кнопки отключения заблокированы. Ни один из кандидатов (Chrome, Tubesky, HkGuide, MovieArk и др.) не одобрен. Это предотвращает опасное отключение до анализа APK/VINTF/init/overlay/privapp-permissions и проверки на точной сборке CS2352P687.
+
+Пока не подтверждены: успешная CI-сборка 2.1.0, работа ROOT-команд на телевизоре, фактическое отключение и откат после перезагрузки. До этих проверок функция считается реализованной на уровне интерфейса и gated-механизма, но не готовой к эксплуатации на ТВ.
