@@ -291,7 +291,7 @@ if "androidx.core:core" not in g:
         pos = m.end()
         g = g[:pos] + '\n    implementation("androidx.core:core:1.15.0")' + g[pos:]
     else:
-        g = g.rstrip() + '\\n\\ndependencies {\\n    implementation("androidx.core:core:1.15.0")\\n}\\n'
+        g = g.rstrip() + '\n\ndependencies {\n    implementation("androidx.core:core:1.15.0")\n}\n'
     GRADLE.write_text(g, encoding="utf-8")
 
 tree = ET.parse(MANIFEST)
