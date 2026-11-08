@@ -294,6 +294,7 @@ if "androidx.core:core" not in g:
         g = g.rstrip() + '\n\ndependencies {\n    implementation("androidx.core:core:1.15.0")\n}\n'
     GRADLE.write_text(g, encoding="utf-8")
 
+ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
 tree = ET.parse(MANIFEST)
 root = tree.getroot()
 app = root.find("application")
