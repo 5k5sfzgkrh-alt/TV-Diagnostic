@@ -133,11 +133,16 @@ echo '=== BLOCK_MMС ==='; ls -l /dev/block/mmc* 2>/dev/null
 echo '=== WIFI_SYSFS ==='; ls -l /sys/class/net 2>/dev/null
 echo '=== WLAN_MODULES ==='; ls -l /sys/module 2>/dev/null
 echo '=== DRM ==='; ls -R /sys/class/drm 2>/dev/null
+ echo '=== DISPLAY_SYSFS ==='; ls -R /sys/class/graphics 2>/dev/null; ls -R /sys/class/backlight 2>/dev/null; ls -R /sys/class/display 2>/dev/null
+ echo '=== PANEL_TCON ==='; find /sys -maxdepth 5 -iname '*panel*' -o -iname '*tcon*' 2>/dev/null | head -n 300
 echo '=== FRAMEBUFFER ==='; cat /sys/class/graphics/fb0/virtual_size 2>/dev/null; cat /sys/class/graphics/fb0/bits_per_pixel 2>/dev/null
 echo '=== FSTAB ==='; for f in /vendor/etc/fstab* /odm/etc/fstab*; do [ -f "$f" ] && echo "--- $f" && cat "$f"; done
 echo '=== VINTF_VENDOR ==='; cat /vendor/etc/vintf/manifest.xml 2>/dev/null
 echo '=== VINTF_SYSTEM ==='; cat /system/etc/vintf/manifest.xml 2>/dev/null
 echo '=== INIT_LIST ==='; ls -l /vendor/etc/init /vendor/etc/init/hw /system/etc/init 2>/dev/null
+ echo '=== ANDROID_SERVICES ==='; service list 2>/dev/null
+ echo '=== HAL_SERVICES ==='; lshal 2>/dev/null
+ echo '=== DUMPSYS_SERVICES ==='; dumpsys -l 2>/dev/null
 echo '=== INIT_BIGFISH ==='; cat /vendor/etc/init/hw/init.bigfish.rc 2>/dev/null
 echo '=== BUILD_PROPS ==='; for f in /system/build.prop /vendor/build.prop /system/product/etc/build.prop /system_ext/build.prop; do [ -f "$f" ] && echo "--- $f" && cat "$f"; done
 echo '=== WIFI_DRIVER ==='; dmesg 2>/dev/null | grep -iE 'wlan|wifi|bluetooth|firmware|panel|tcon|mali|hisilicon' | tail -n 250
