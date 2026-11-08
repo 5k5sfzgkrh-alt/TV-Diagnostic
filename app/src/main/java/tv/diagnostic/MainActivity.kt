@@ -89,8 +89,7 @@ class MainActivity : Activity() {
         val packages = JSONArray()
         val pm = packageManager
         val apps = try {
-            if (Build.VERSION.SDK_INT >= 33) pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
-            else @Suppress("DEPRECATION") pm.getInstalledApplications(0)
+            getInstalledApps(pm)
         } catch (_: Exception) { emptyList() }
         for (app in apps.sortedBy { it.packageName }) {
             val item = JSONObject()
@@ -131,6 +130,11 @@ class MainActivity : Activity() {
             appendLine("Ограничения: это снимок доступных приложению данных, не полный список процессов/HAL/init.")
             appendLine("Автоматическое отключение компонентов отсутствует.")
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun getInstalledApps(pm: PackageManager): List<android.content.pm.ApplicationInfo> {
+        return if (Build.VERSION.SDK_INT >= 33) pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0)) else pm.getInstalledApplications(0)
     }
 
     private fun shareReport() {
