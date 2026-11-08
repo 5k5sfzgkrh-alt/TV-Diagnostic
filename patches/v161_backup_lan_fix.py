@@ -19,7 +19,7 @@ s = s.replace(old, new, 1)
 
 # Update user-facing/report version without changing applicationId,
 # so this remains an in-place update of the installed TV Diagnostic app.
-s, n1 = re.subn(r"1\\.6\\.0", "1.6.1", s)
+n1 = s.count("1.6.0")\ns = s.replace("1.6.0", "1.6.1")
 s = s.replace("tv-diagnostic-report-v160.json", "tv-diagnostic-report-v161.json")
 if n1 < 1:
     raise SystemExit("No v1.6.0 UI/report version strings found")
