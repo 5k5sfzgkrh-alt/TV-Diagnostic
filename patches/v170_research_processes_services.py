@@ -166,7 +166,7 @@ class ProcessResearchActivity : Activity() {
             val kernel = readFile("/proc/version", 3000)
             val meminfo = readFile("/proc/meminfo", 10000)
             val properties = runRoot("getprop", 10000L, 30000)
-            val thermal = runRoot("for d in /sys/class/thermal/thermal_zone*; do [ -d \"$d\" ] || continue; echo \"[$d]\"; cat \"$d/type\" 2>/dev/null; cat \"$d/temp\" 2>/dev/null; done", 7000L, 12000)
+            val thermal = runRoot("for d in /sys/class/thermal/thermal_zone*; do [ -d \"\$d\" ] || continue; echo \"[\$d]\"; cat \"\$d/type\" 2>/dev/null; cat \"\$d/temp\" 2>/dev/null; done", 7000L, 12000)
             val wifi = runRoot("dumpsys wifi", 10000L, 20000)
             val bluetooth = runRoot("dumpsys bluetooth_manager", 10000L, 12000)
             val media = runRoot("dumpsys media.codec", 10000L, 16000)
