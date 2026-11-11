@@ -1,0 +1,193 @@
+name: Build TV Diagnostic 1.8.0 RAMDISK direct export
+
+on:
+  push:
+    branches:
+      - tv-diagnostic-v1.8.0-ramdisk-readonly-export
+    paths:
+      - "patches/v170_research_processes_services.py"
+      - "patches/v180_ramdisk_direct_export.py"
+      - ".github/workflows/build-v180-ramdisk-export.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Validate workflow YAML and Python patch syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/build-v180-ramdisk-export.yml
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          for name in (
+              "patches/v170_research_processes_services.py",
+              "patches/v180_ramdisk_direct_export.py",
+          ):
+              ast.parse(Path(name).read_text(encoding="utf-8"), filename=name)
+              print("Python syntax OK:", name)
+          PY
+
+      - name: Unpack reviewed source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p project
+          unzip -q TV-Diagnostic-v1.3.3-project-root-reviewed.zip -d project
+          test -s project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
+
+      - name: Set v1.6.0 base metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          p = Path("project/app/build.gradle.kts")
+          s = p.read_text(encoding="utf-8")
+          for old, new in (
+              ("versionCode = 133", "versionCode = 160"),
+              ('versionName = "1.3.3"', 'versionName = "1.6.0"'),
+          ):
+              if s.count(old) != 1:
+                  raise SystemExit("Gradle base metadata anchor mismatch: " + old)
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding="utf-8")
+          m = Path("project/app/src/main/AndroidManifest.xml")
+          ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
+          tree = ET.parse(m)
+          app = tree.getroot().find("application")
+          if app is None:
+              raise SystemExit("Manifest application element missing")
+          app.set("{http://schemas.android.com/apk/res/android}label", "TV Diagnostic 1.6.0")
+          tree.write(m, encoding="utf-8", xml_declaration=True)
+          PY
+
+      - name: Apply verified v1.6.2 foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 patches/v135_emmc_layout.py
+          python3 patches/v140_performance_readonly.py
+          python3 patches/v150_readonly_report_hardware.py
+          python3 patches/v160_readonly_lan.py
+          python3 patches/v161_backup_lan_fix.py
+          python3 patches/v162_qr_version.py
+          python3 patches/v162_fix_stale_ui_version.py
+
+      - name: Add v1.7.0 process and service research
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 patches/v170_research_processes_services.py
+
+      - name: Add v1.8.0 direct RAMDISK export
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 patches/v180_ramdisk_direct_export.py
+
+      - name: Verify v1.8.0 metadata and read-only RAMDISK path
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          src = Path("project/app/src/main/java/com/tvdiagnostic/hi3751/MainActivity.kt").read_text(encoding="utf-8")
+          start = src.index("    private fun confirmRamdiskDirectExport()")
+          end = src.index("    private fun confirmSystemBackup()", start)
+          block = src[start:end]
+          for required in (
+              "/dev/block/by-name/ramdisk", "/dev/block/mmcblk0p25",
+              "1048576L", "2048L", "blockdev", "readlink",
+              "computeRamdiskSha256", "streamRamdiskToClient",
+              "X-Content-SHA256", "dd", "if=",
+          ):
+              if required not in block:
+                  raise SystemExit("Missing RAMDISK safety control: " + required)
+          for forbidden in (
+              "FileOutputStream", "File(", "writeText(", "mkdirs()",
+              "dd of=", "blockdev --setrw", "fastboot flash",
+              "flash_image", "erase_partition",
+          ):
+              if forbidden in block:
+                  raise SystemExit("Unsafe RAMDISK operation found: " + forbidden)
+          if block.count('"dd"') != 2:
+              raise SystemExit("Expected exactly two read-only dd passes")
+          gradle = Path("project/app/build.gradle.kts").read_text(encoding="utf-8")
+          if 'versionCode = 180' not in gradle or 'versionName = "1.8.0"' not in gradle:
+              raise SystemExit("Gradle version metadata mismatch")
+          tree = ET.parse("project/app/src/main/AndroidManifest.xml")
+          app = tree.getroot().find("application")
+          if app is None or app.get("{http://schemas.android.com/apk/res/android}label") != "TV Diagnostic 1.8.0":
+              raise SystemExit("Manifest application label mismatch")
+          if "TV DIAGNOSTIC  •  Hi3751V553  •  1.8.0" not in src:
+              raise SystemExit("Main screen version title mismatch")
+          print("RAMDISK export is direct-stream only: no local TV image file, no block writes.")
+          PY
+          grep -q 'ProcessResearchActivity' "$SRC"
+          grep -q 'tv-diagnostic-research-1' project/app/src/main/java/com/tvdiagnostic/hi3751/ProcessResearchActivity.kt
+          grep -q 'versionCode = 180' project/app/build.gradle.kts
+          grep -q 'versionName = "1.8.0"' project/app/build.gradle.kts
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK_ROOT"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build debug APK
+        run: gradle --no-daemon -p project :app:assembleDebug
+
+      - name: Verify APK signature, package metadata and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=project/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          sha256sum "$APK" | tee project/APK-SHA256.txt
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort | tail -n 1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee project/APK-SIGNATURE.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee project/APK-BADGING.txt
+          grep -q "versionName='1.8.0'" project/APK-BADGING.txt
+          grep -q "application-label:'TV Diagnostic 1.8.0'" project/APK-BADGING.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TV-Diagnostic-v1.8.0-ramdisk-readonly-debug-apk
+          path: |
+            project/app/build/outputs/apk/debug/app-debug.apk
+            project/APK-SHA256.txt
+            project/APK-SIGNATURE.txt
+            project/APK-BADGING.txt
+          if-no-files-found: error
+          retention-days: 14
