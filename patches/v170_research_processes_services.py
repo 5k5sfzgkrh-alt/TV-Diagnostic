@@ -166,7 +166,7 @@ class ProcessResearchActivity : Activity() {
             val kernel = readFile("/proc/version", 3000)
             val meminfo = readFile("/proc/meminfo", 10000)
             val properties = runRoot("getprop", 10000L, 30000)
-            val thermal = runRoot("for d in /sys/class/thermal/thermal_zone*; do [ -d \\"$d\\" ] || continue; echo \\"[$d]\\"; cat \\"$d/type\\" 2>/dev/null; cat \\"$d/temp\\" 2>/dev/null; done", 7000L, 12000)
+            val thermal = runRoot("for d in /sys/class/thermal/thermal_zone*; do [ -d \"$d\" ] || continue; echo \"[$d]\"; cat \"$d/type\" 2>/dev/null; cat \"$d/temp\" 2>/dev/null; done", 7000L, 12000)
             val wifi = runRoot("dumpsys wifi", 10000L, 20000)
             val bluetooth = runRoot("dumpsys bluetooth_manager", 10000L, 12000)
             val media = runRoot("dumpsys media.codec", 10000L, 16000)
@@ -225,12 +225,12 @@ class ProcessResearchActivity : Activity() {
             runOnUiThread {
                 if (saved != null) {
                     status.text = "Снимок сохранён: @@{saved.name} • @@{saved.length()} байт"
-                    output.text = "ПОЛНЫЙ ТЕХНИЧЕСКИЙ СНИМОК СОЗДАН\\n\\n" +
-                        "Файл: @@{saved.absolutePath}\\n" +
-                        "Размер: @@{saved.length()} байт\\n" +
-                        "Процессы: @@{lastProcesses.length()}\\n" +
-                        "Собраны: свойства, службы Android, Binder, HAL (lshal), модули ядра, разделы, mounts, память, температура, Wi-Fi, Bluetooth и media codec.\\n\\n" +
-                        "Файл находится в приватном каталоге приложения backups и доступен для передачи через LAN-сервер 1.6.2.\\n" +
+                    output.text = "ПОЛНЫЙ ТЕХНИЧЕСКИЙ СНИМОК СОЗДАН\n\n" +
+                        "Файл: @@{saved.absolutePath}\n" +
+                        "Размер: @@{saved.length()} байт\n" +
+                        "Процессы: @@{lastProcesses.length()}\n" +
+                        "Собраны: свойства, службы Android, Binder, HAL (lshal), модули ядра, разделы, mounts, память, температура, Wi-Fi, Bluetooth и media codec.\n\n" +
+                        "Файл находится в приватном каталоге приложения backups и доступен для передачи через LAN-сервер 1.6.2.\n" +
                         "Данные блочных устройств не читались; запись, остановка служб и изменение модулей не выполнялись."
                 } else {
                     status.text = "Не удалось сохранить JSON-снимок"
@@ -266,7 +266,7 @@ class ProcessResearchActivity : Activity() {
         super.onDestroy()
     }
 }
-'''.replace("@@{", "\${")
+'''.replace("@@{", "${")
 
 activity_path = root / "app/src/main/java/com/tvdiagnostic/hi3751/ProcessResearchActivity.kt"
 activity_path.write_text(activity, encoding="utf-8")
